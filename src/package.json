@@ -1,0 +1,17 @@
+{
+  "name": "flyrank-capstone-widget-platform",
+  "version": "1.0.0",
+  "description": "Language + framework Node.js + Express\r Database PostgreSQL via Docker\r Geo provider A ip-api.com (JSON endpoint)\r Geo provider B (fallback) ipapi.co\r Email side effect Console log, or Mailpit (local mail catcher)\r The \"customer site\" Plain HTML file on a second local port ( npx serve / python -m http.server )",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
+  }
+}
