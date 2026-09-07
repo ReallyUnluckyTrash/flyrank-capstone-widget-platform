@@ -14,5 +14,6 @@ export async function requireAuth(req, res, next) {
   }
 
   req.user = user;
+  req.tenantId = user.id; // Assuming tenantId is the same as user.id; adjust if necessary
   return next();
 }

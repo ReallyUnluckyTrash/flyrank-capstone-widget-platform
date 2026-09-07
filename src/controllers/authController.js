@@ -5,11 +5,11 @@ function getCredentials(request) {
   return email && password ? { email, password } : null;
 }
 
-  function getCompanyName(request) {
-    return typeof request.body?.company_name === 'string'
-    ? request.body.company_name.trim() || null
-    : null;
-  }
+function getCompanyName(request) {
+  return typeof request.body?.company_name === 'string'
+  ? request.body.company_name.trim() || null
+  : null;
+}
 
 export const authController = {
   async signup(req, res) {
