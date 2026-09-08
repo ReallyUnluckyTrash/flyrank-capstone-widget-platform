@@ -1,6 +1,7 @@
 import {
     createWidget,
     deleteWidget,
+    getPublicWidgetConfig,
     getWidgetById,
     getWidgets,
     updateWidget,
@@ -20,7 +21,8 @@ function getTenantId(request) {
 
 function getEmbedSnippet(widgetId) {
     const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:3000';
-    return `<script src="${baseUrl}/widget.js?id=${widgetId}" defer></script>`;
+    const widgetVersion = process.env.WIDGET_VERSION || '1';
+    return `<script src="${baseUrl}/widget.js?id=${widgetId}&v=${encodeURIComponent(widgetVersion)}" defer></script>`;
 }
 
 function getCreateInput(body = {}) {
@@ -53,6 +55,14 @@ export const widgetController = {
     async getWidgets(req, res) {
         const widgets = await getWidgets(getTenantId(req));
         return res.status(200).send({ data: widgets });
+    },
+
+    async getPublicWidgetConfig(req, res) {
+        const config = await getPublicWidgetConfig(req.params.id);
+        if (!config) {
+            return res.status(404).send({ error: 'Widget not found' });
+        }
+        return res.status(200).send({ data: config });
     },
 
     async getWidgetById(req, res) {

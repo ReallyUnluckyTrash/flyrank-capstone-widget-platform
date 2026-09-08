@@ -1,0 +1,180 @@
+(() => {
+	const script = document.currentScript;
+	const scriptUrl = new URL(script.src);
+	const widgetId = scriptUrl.searchParams.get('id');
+	const apiUrl = scriptUrl.origin;
+	const root = document.createElement('div');
+	const style = document.createElement('style');
+
+	style.textContent = `
+		.flyrank-widget {
+			box-sizing: border-box;
+			--flyrank-accent: #fb4934;
+			max-width: 640px;
+			padding: 3px;
+			border-left: 2px solid var(--flyrank-accent);
+			border-radius: 0 .5rem .5rem 0;
+			background: #3c3836;
+			overflow: hidden;
+		}
+
+		.flyrank-widget__form {
+			box-sizing: border-box;
+			margin: 0;
+			padding: 18px;
+			border: 0;
+			border-radius: 0 .35rem .35rem 0;
+			background: #ebdbb2;
+			color: #282828;
+			font: 14pt/1.4 sans-serif;
+		}
+
+		.flyrank-widget__field {
+			display: block;
+			margin: 0 0 12px;
+		}
+
+		.flyrank-widget__input {
+			box-sizing: border-box;
+			display: block;
+			width: 100%;
+			margin-top: 4px;
+			padding: 7px;
+			border: 1px solid #928374;
+			border-radius: .2rem;
+			font: inherit;
+		}
+
+		.flyrank-widget__button {
+			min-height: 35px;
+			margin-top: 4px;
+			padding: 8px 14px;
+			border: 0;
+			border-radius: .2rem;
+			background: var(--flyrank-accent);
+			color: #282828;
+			cursor: pointer;
+			font: inherit;
+		}
+
+		.flyrank-widget__button:disabled {
+			cursor: wait;
+			opacity: .65;
+		}
+
+		.flyrank-widget__status {
+			min-height: 1.4em;
+			margin: 12px 0 0;
+			color: #504945;
+			font-size: .85em;
+		}
+	`;
+
+	function getFields(formFields) {
+		if (Array.isArray(formFields)) return formFields;
+		if (formFields && typeof formFields === 'object') {
+			return Object.entries(formFields).map(([name, value]) => ({
+				name,
+				...(typeof value === 'object' ? value : { label: value }),
+			}));
+		}
+		return [];
+	}
+
+	function createField(field, index) {
+		const name = String(field.name || field.id || `field_${index}`);
+		const label = document.createElement('label');
+		label.className = 'flyrank-widget__field';
+		label.textContent = field.label || name;
+
+		const input = document.createElement('input');
+		input.className = 'flyrank-widget__input';
+		input.name = name;
+		input.type = field.type || (name.toLowerCase().includes('email') ? 'email' : 'text');
+		input.required = Boolean(field.required);
+		label.appendChild(input);
+		return label;
+	}
+
+	function showMessage(status, message, isError = false) {
+		status.textContent = message;
+		status.setAttribute('role', isError ? 'alert' : 'status');
+	}
+
+	function createForm(config) {
+		const form = document.createElement('form');
+		form.className = 'flyrank-widget__form';
+
+		getFields(config.form_fields).forEach((field, index) => {
+			form.appendChild(createField(field, index));
+		});
+
+		const button = document.createElement('button');
+		button.className = 'flyrank-widget__button';
+		button.type = 'submit';
+		button.textContent = config.button_text || 'Sign up';
+
+		const status = document.createElement('p');
+		status.className = 'flyrank-widget__status';
+		status.setAttribute('aria-live', 'polite');
+		form.append(button, status);
+
+		form.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			button.disabled = true;
+			showMessage(status, 'Submitting...');
+
+			try {
+				const response = await fetch(`${apiUrl}/submissions`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ widget_id: widgetId, data: Object.fromEntries(new FormData(form)) }),
+				});
+				const result = await response.json().catch(() => ({}));
+				showMessage(
+					status,
+					result.message || result.error || (response.ok ? 'Thanks for signing up.' : 'Unable to submit the form.'),
+					!response.ok,
+				);
+			} catch {
+				showMessage(status, 'Unable to reach the submission endpoint.', true);
+			} finally {
+				button.disabled = false;
+			}
+		});
+
+		return form;
+	}
+
+	function render(config) {
+		const widget = document.createElement('div');
+		widget.className = 'flyrank-widget';
+		const accentColor = config.display_options?.accent_color;
+		if (typeof accentColor === 'string' && /^#[0-9a-f]{6}$/i.test(accentColor)) {
+			widget.style.setProperty('--flyrank-accent', accentColor);
+		}
+		widget.appendChild(createForm(config));
+		root.replaceChildren(widget);
+	}
+
+	function showError(message) {
+		root.textContent = message;
+	}
+
+	script.parentNode.insertBefore(root, script.nextSibling);
+	document.head.appendChild(style);
+
+	if (!widgetId) {
+		showError('Widget id is missing.');
+		return;
+	}
+
+	root.textContent = 'Loading...';
+	fetch(`${apiUrl}/widgets/${encodeURIComponent(widgetId)}/config`)
+		.then((response) => {
+			if (!response.ok) throw new Error('Widget config could not be loaded');
+			return response.json();
+		})
+		.then((payload) => render(payload.data || payload))
+		.catch(() => showError('Widget could not be loaded.'));
+})();

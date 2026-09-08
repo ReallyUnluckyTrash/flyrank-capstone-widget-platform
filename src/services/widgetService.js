@@ -36,6 +36,16 @@ export async function getWidgetById(widgetId, tenantId) {
 	return result.rows[0] ?? null;
 }
 
+export async function getPublicWidgetConfig(widgetId) {
+	const result = await pool.query(
+		`SELECT form_fields, display_options, button_text
+		 FROM widgets
+		 WHERE id = $1`,
+		[widgetId],
+	);
+	return result.rows[0] ?? null;
+}
+
 export async function updateWidget(widgetId, tenantId, input) {
 	const fields = Object.keys(input);
 	if (fields.length === 0) {
