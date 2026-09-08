@@ -9,6 +9,7 @@ import widgetLoaderRouter from './routes/widgetLoaderRoutes.js';
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use('/auth', authRouter);
 app.use('/dashboard', dashboardRouter);

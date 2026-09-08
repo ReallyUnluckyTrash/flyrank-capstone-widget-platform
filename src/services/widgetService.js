@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { pool } from './databaseService.js';
+import { normalizeFormFields } from '../middleware/validation.js';
 
 export async function createWidget(tenantId, input) {
 	const result = await pool.query(
@@ -12,7 +13,7 @@ export async function createWidget(tenantId, input) {
 			tenantId,
 			input.title,
 			input.description ?? null,
-			JSON.stringify(input.form_fields),
+			JSON.stringify(normalizeFormFields(input.form_fields)),
 			input.button_text ?? 'Sign up',
 			JSON.stringify(input.display_options ?? {}),
 		],
@@ -43,7 +44,25 @@ export async function getPublicWidgetConfig(widgetId) {
 		 WHERE id = $1`,
 		[widgetId],
 	);
-	return result.rows[0] ?? null;
+	if (!result.rows[0]) return null;
+	return {
+		...result.rows[0],
+		form_fields: normalizeFormFields(result.rows[0].form_fields),
+	};
+}
+
+export async function getWidgetForSubmission(widgetId) {
+	const result = await pool.query(
+		`SELECT id, tenant_id, type, form_fields
+		 FROM widgets
+		 WHERE id = $1`,
+		[widgetId],
+	);
+	if (!result.rows[0]) return null;
+	return {
+		...result.rows[0],
+		form_fields: normalizeFormFields(result.rows[0].form_fields),
+	};
 }
 
 export async function updateWidget(widgetId, tenantId, input) {
