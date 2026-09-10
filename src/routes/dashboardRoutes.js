@@ -4,6 +4,7 @@ import { dashboardController } from '../controllers/dashboardController.js';
 
 const router = express.Router();
 
+router.get('/stats/stream', requireAuth, dashboardController.stream);
 router.get('/stats/overview', requireAuth, dashboardController.getOverview);
 router.get('/stats/timeseries', requireAuth, dashboardController.getTimeseries);
 router.get('/stats/widget', requireAuth, dashboardController.getWidget);

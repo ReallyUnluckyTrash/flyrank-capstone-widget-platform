@@ -4,6 +4,7 @@ import {
 	getSubmissionTimeseries,
 	getWidgetStats,
 } from '../services/dashboardService.js';
+import { openTenantStream } from '../services/sseService.js';
 
 function getTenantId(request) {
 	return request.user.id;
@@ -29,6 +30,10 @@ function handleError(error, res, message) {
 }
 
 export const dashboardController = {
+	stream(req, res) {
+		openTenantStream(getTenantId(req), req, res);
+	},
+
 	async getOverview(req, res) {
 		try {
 			const stats = await getOverviewStats(getTenantId(req));

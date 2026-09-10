@@ -4,6 +4,7 @@ import { enrichIp } from './geoService.js';
 import { isHoneypotFilled } from './spamService.js';
 import { validateConfiguredFields } from '../middleware/validation.js';
 import { getWidgetForSubmission } from './widgetService.js';
+import { broadcastToTenant } from './sseService.js';
 
 export class SubmissionError extends Error {
 	constructor(status, message, details) {
@@ -60,6 +61,7 @@ export async function createSubmission(widgetId, data, request) {
 		country: geo.country,
 		city: geo.city,
 	};
+	broadcastToTenant(widget.tenant_id, 'submission.created', payload);
 	void sendWebhook(payload);
 
 	return { id: submissionId };
