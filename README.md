@@ -20,3 +20,5 @@ Website Visitor
  | email / webhook side effect (failure must NOT block success)
 Widget Owner (authenticated)
  → Dashboard API ←— submissions + stats
+The authenticated owner views their submissions with basic analytics: counts over time, per-widget stats, geo
+breakdown. Endpoints + a simple table are enough — this is a backend capstone, not a frontend one.
