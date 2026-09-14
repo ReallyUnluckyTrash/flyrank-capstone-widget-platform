@@ -1,0 +1,142 @@
+name: flyrank-capstone-widget-platform
+run: docker compose up -d --build
+seed: npm --prefix src run seed:demo
+base_url: http://localhost:3000
+second_origin:
+  command: python -m http.server 4173
+  url: http://localhost:4173/widget-test.html
+
+fixtures:
+  demo_widget_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+  demo_tenant_email: demo@flyrank.local
+  demo_tenant_password: DemoPass!2026
+  demo_tenant_b_email: demo-alt@flyrank.local
+  demo_tenant_b_password: DemoPass!2026
+  demo_tenant_id: d58c262f-831c-4358-92fb-0b8dc48beecf
+  demo_tenant_b_id: 1939e4c5-1955-4e88-9c48-167c1ec4ef5b
+  submission_data:
+    name: Probe Visitor
+    email: probe@example.com
+
+endpoints:
+  signup: /auth/signup
+  login: /auth/login
+  profile: /auth/protected/profile
+  submit: /submissions
+  widget_config: /widgets/{widget_id}/config
+  widget_submissions: /widgets/{widget_id}/submissions?page=1&page_size=25
+  dashboard_overview: /dashboard/stats/overview
+  dashboard_widget_stats: /dashboard/stats/widget
+  widget_bundle: /widget.js?id={widget_id}&v=1
+
+probes:
+  - id: 1
+    name: valid submission from second origin
+    auth: use demo_tenant_email and demo_tenant_password with POST /auth/login; save access_token
+    request:
+      method: POST
+      url: /submissions
+      origin: http://localhost:4173
+      body:
+        widget_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+        data:
+          name: Probe Visitor
+          email: probe@example.com
+    verify:
+      - status: 201
+      - response_json: data.id
+      - follow_up: GET /widgets/{widget_id}/submissions with owner bearer token contains the returned submission id
+      - follow_up: GET /dashboard/stats/overview with owner bearer token shows total_submissions increased
+
+  - id: 2
+    name: malformed and oversized payloads
+    requests:
+      - method: POST
+        url: /submissions
+        body: malformed-json
+        expect:
+          status: 400
+          json_error: Invalid JSON payload
+      - method: POST
+        url: /submissions
+        body: json payload larger than 100kb
+        expect:
+          status: 413
+          json_error: Request payload is too large
+      - method: POST
+        url: /submissions
+        body:
+          widget_id: not-a-uuid
+          data: {}
+        expect:
+          status: 400
+          json_error: Invalid submission payload
+    verify:
+      - no response has status 500
+
+  - id: 3
+    name: burst rate limiting and recovery
+    request:
+      method: POST
+      url: /submissions
+      repeat: 101
+      body:
+        widget_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+        data:
+          name: Burst Visitor
+          email: burst@example.com
+    verify:
+      - at_least_one_status: 429
+      - follow_up: GET /widgets/{widget_id}/config returns 200 after the burst
+      - legitimate_submission_after_burst: 201 when the rate-limit window permits
+
+  - id: 4
+    name: geo provider fallback and graceful degradation
+    request:
+      method: POST
+      url: /submissions
+      body:
+        widget_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+        data:
+          name: Geo Probe
+          email: geo@example.com
+    controls:
+      provider_a_down: block http://ip-api.com in the API container or use a test proxy that returns a provider-A failure
+      both_providers_down: block http://ip-api.com and https://ipapi.co in the API container
+    verify:
+      - provider_a_down: response is 201 and stored row has provider-B country/city
+      - both_providers_down: response is 201 and stored row has null country/city
+      - no_provider_failure_returns_500: true
+
+  - id: 5
+    name: failing webhook does not block storage
+    controls:
+      command: $env:WEBHOOK_URL='http://127.0.0.1:9/unreachable'; docker compose up -d --build
+    request:
+      method: POST
+      url: /submissions
+      body:
+        widget_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+        data:
+          name: Webhook Probe
+          email: webhook@example.com
+    verify:
+      - status: 201
+      - follow_up: GET /widgets/{widget_id}/submissions contains the returned submission id
+      - container_log_contains: Submission webhook failed
+
+  - id: 6
+    name: honeypot rejection
+    request:
+      method: POST
+      url: /submissions
+      body:
+        widget_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+        data:
+          name: Bot Visitor
+          email: bot@example.com
+          _hp_website: https://bot.invalid
+    verify:
+      - status: 429
+      - response_json: error=Submission rejected
+      - submission_is_not_stored: true

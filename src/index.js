@@ -17,6 +17,15 @@ app.use('/submissions', submissionsRouter);
 app.use('/widgets', widgetsRouter);
 app.use('/', widgetLoaderRouter);
 
+app.use((error, req, res, next) => {
+  if (error?.type === 'entity.parse.failed') {
+    return res.status(400).send({ error: 'Invalid JSON payload' });
+  }
+  if (error?.type === 'entity.too.large') {
+    return res.status(413).send({ error: 'Request payload is too large' });
+  }
+  return next(error);
+});
 
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);

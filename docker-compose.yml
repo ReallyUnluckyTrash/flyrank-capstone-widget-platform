@@ -23,6 +23,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/widget_db
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_KEY: ${SUPABASE_KEY}
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
     ports:
       - "3000:3000"
     depends_on:
