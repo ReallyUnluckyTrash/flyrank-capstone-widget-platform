@@ -66,3 +66,37 @@ export async function createSubmission(widgetId, data, request) {
 
 	return { id: submissionId };
 }
+
+export async function getWidgetSubmissions(widgetId, tenantId, page, pageSize) {
+	const widgetResult = await pool.query(
+		'SELECT id FROM widgets WHERE id = $1 AND tenant_id = $2',
+		[widgetId, tenantId],
+	);
+	if (!widgetResult.rows[0]) return null;
+
+	const offset = (page - 1) * pageSize;
+	const [countResult, submissionsResult] = await Promise.all([
+		pool.query(
+			'SELECT COUNT(*)::int AS total FROM submissions WHERE widget_id = $1 AND tenant_id = $2',
+			[widgetId, tenantId],
+		),
+		pool.query(
+			`SELECT id, widget_id, data, country, city, is_spam, created_at
+			 FROM submissions
+			 WHERE widget_id = $1 AND tenant_id = $2
+			 ORDER BY created_at DESC, id DESC
+			 LIMIT $3 OFFSET $4`,
+			[widgetId, tenantId, pageSize, offset],
+		),
+	]);
+
+	return {
+		data: submissionsResult.rows,
+		pagination: {
+			page,
+			page_size: pageSize,
+			total: countResult.rows[0].total,
+			total_pages: Math.ceil(countResult.rows[0].total / pageSize),
+		},
+	};
+}
