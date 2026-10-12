@@ -12,6 +12,7 @@ submissions, and basic dashboard statistics.
 The main parts are:
 
 - Node.js and Express API
+- React dashboard for authentication, analytics, widget configuration, and submissions
 - PostgreSQL database running in Docker
 - Supabase authentication for widget owners
 - A small JavaScript file that displays the widget
@@ -45,6 +46,34 @@ Public widget endpoints
 		+--> optional webhook (does not block saving)
 ```
 
+## Frontend dashboard
+
+The React dashboard lives in `frontend/` and provides the interface widget
+owners use to manage their account and widgets. It includes:
+
+- Email/password sign-up and sign-in through the backend API
+- An analytics overview with dashboard statistics
+- A widget list and editor for configuring signup widgets
+- A submissions view for reviewing collected signups
+- Embed-code generation for placing a widget on another website
+
+The frontend is built with React, React Router, and Vite. It calls the Express
+API for authentication and dashboard data. During local development, Vite
+proxies API requests to `http://localhost:3000`; in the Docker stack, the
+dashboard is served on `http://localhost:3001`.
+
+The repository keeps the frontend and backend separate while sharing
+deployment and project configuration at the root:
+
+```text
+frontend/         React dashboard, Vite config, and frontend Dockerfile
+  src/            UI, routes, and API helpers
+backend/          Node.js package and backend Dockerfile
+  src/            Express routes, controllers, services, and widget script
+db/               PostgreSQL migrations
+docker-compose.yml
+```
+
 ## Run the project
 
 Run these commands from the repository root in PowerShell or another terminal.
@@ -70,14 +99,27 @@ script creates the demo users through the API's normal auth routes.
 docker compose up -d --build
 ```
 
-The API is available at `http://localhost:3000`.
+The API is available at `http://localhost:3000` and the React dashboard at
+`http://localhost:3001`.
 The seed command in the next step also runs this startup command, so you can
 skip this step when you only want the demo environment.
+
+To run the React dashboard outside Docker during development, start the API
+and database as above, then run:
+
+```sh
+npm --prefix frontend install
+npm --prefix frontend run dev
+```
+
+Vite serves the dashboard at `http://localhost:5173` and proxies API requests
+to the Express API on port 3000. Use this workflow for frontend development;
+the Docker stack serves the production frontend build on port 3001.
 
 ### 3. Seed demo data
 
 ```sh
-npm --prefix src run seed:demo
+npm --prefix backend run seed:demo
 ```
 
 The seed command also starts or rebuilds the Docker stack and waits for the API
@@ -144,12 +186,11 @@ login token.
 To start the complete stack and load demo data:
 
 ```sh
-npm --prefix src run seed:demo
+npm --prefix backend run seed:demo
 ```
 
 ## Limitations
 
-- This is a backend capstone, not a complete dashboard web application.
 - Authentication depends on a working Supabase project and valid Supabase
 	environment variables.
 - Supabase email confirmation settings can affect whether the seeded users can

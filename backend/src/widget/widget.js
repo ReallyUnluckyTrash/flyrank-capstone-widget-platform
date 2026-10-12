@@ -10,49 +10,86 @@
 	.flyrank-widget {
 		box-sizing: border-box;
 		max-width: 640px;
-		padding: 3px;
-		border-radius: .5rem;
-		background: #3c3836;
-		overflow: hidden;
+    font-family: 'DM Sans', sans-serif;
 	}
 
 	.flyrank-widget__form {
 		box-sizing: border-box;
 		margin: 0;
-		padding: 18px;
-		border: 0;
-		border-radius: .35rem;
-		background: #ebdbb2;
-		color: #282828;
-		font: 14pt/1.4 sans-serif;
+    padding: 18px;
+    border: 1px solid #e5ebe5;
+    border-radius: 5px;
+    background: #fff;
+    color: #283a2e;
+    font: 14px/1.5 'DM Sans', sans-serif;
+  }
+
+  .flyrank-widget__brand {
+    display: block;
+    margin-bottom: 12px;
+    color: var(--flyrank-accent, #087d56);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+  }
+
+  .flyrank-widget__title {
+    margin: 0 0 5px;
+    color: #283a2e;
+    font-size: 18px;
+    line-height: 1.35;
+  }
+
+  .flyrank-widget__description {
+    margin: 0 0 15px;
+    color: #829087;
+    font-size: 13px;
+    line-height: 1.5;
 	}
 
 	.flyrank-widget__field {
-		display: block;
-		margin: 0 0 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin: 0 0 11px;
+    color: #58665c;
+    font-size: 12px;
 	}
 
 	.flyrank-widget__input {
 		box-sizing: border-box;
-		display: block;
+    display: block;
 		width: 100%;
-		margin-top: 4px;
-		padding: 7px;
-		border: 1px solid #928374;
-		border-radius: .2rem;
-		font: inherit;
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid #e2e8e2;
+    border-radius: 3px;
+    background: #fbfcfa;
+    color: #283a2e;
+    font: inherit;
+  }
+
+  .flyrank-widget__input:focus {
+    border-color: var(--flyrank-accent, #087d56);
+    outline: 2px solid color-mix(in srgb, var(--flyrank-accent, #087d56) 15%, transparent);
+    outline-offset: 1px;
 	}
 
 	.flyrank-widget__button {
-		min-height: 35px;
-		margin-top: 4px;
-		padding: 8px 14px;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 38px;
+    margin-top: 2px;
+    padding: 8px 12px;
 		border: 0;
-		border-radius: .2rem;
-		background: #fb4934;
-		color: #282828;
+    border-radius: 3px;
+    background: var(--flyrank-accent, #087d56);
+    color: #fff;
 		cursor: pointer;
-		font: inherit;
+    font: 600 13px/1.4 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 	}
 
 	.flyrank-widget__button:disabled {
@@ -63,8 +100,8 @@
 	.flyrank-widget__status {
 		min-height: 1.4em;
 		margin: 12px 0 0;
-		color: #504945;
-		font-size: .85em;
+    color: #728078;
+    font-size: 12px;
 	}
 
   .flyrank-widget__honeypot {
@@ -102,7 +139,17 @@
 
     const label = document.createElement("label");
     label.className = "flyrank-widget__field";
-    label.textContent = field.label || name;
+
+    const labelText = document.createElement("span");
+    labelText.textContent = field.label || name;
+    label.appendChild(labelText);
+
+    if (field.required) {
+      const required = document.createElement("span");
+      required.textContent = " *";
+      required.style.color = "#bd624d";
+      labelText.appendChild(required);
+    }
 
     const input = document.createElement("input");
     input.className = "flyrank-widget__input";
@@ -124,6 +171,23 @@
     const form = document.createElement("form");
     form.className = "flyrank-widget__form";
 
+    const brand = document.createElement("span");
+    brand.className = "flyrank-widget__brand";
+    brand.textContent = "VERDANT CAPTURE";
+    form.appendChild(brand);
+
+    const title = document.createElement("h2");
+    title.className = "flyrank-widget__title";
+    title.textContent = config.title || "Your widget";
+    form.appendChild(title);
+
+    if (config.description) {
+      const description = document.createElement("p");
+      description.className = "flyrank-widget__description";
+      description.textContent = config.description;
+      form.appendChild(description);
+    }
+
     getFields(config.form_fields).forEach((field, index) => {
       form.appendChild(createField(field, index));
     });
@@ -131,7 +195,12 @@
     const button = document.createElement("button");
     button.className = "flyrank-widget__button";
     button.type = "submit";
-    button.textContent = config.button_text || "Sign up";
+    const buttonText = document.createElement("span");
+    buttonText.textContent = config.button_text || "Sign up";
+    const arrow = document.createElement("span");
+    arrow.textContent = "→";
+    arrow.setAttribute("aria-hidden", "true");
+    button.append(buttonText, arrow);
 
     const status = document.createElement("p");
     status.className = "flyrank-widget__status";

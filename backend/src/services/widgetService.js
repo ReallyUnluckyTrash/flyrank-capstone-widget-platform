@@ -39,7 +39,7 @@ export async function getWidgetById(widgetId, tenantId) {
 
 export async function getPublicWidgetConfig(widgetId) {
 	const result = await pool.query(
-		`SELECT form_fields, display_options, button_text
+		`SELECT title, description, form_fields, display_options, button_text
 		 FROM widgets
 		 WHERE id = $1`,
 		[widgetId],
@@ -73,7 +73,12 @@ export async function updateWidget(widgetId, tenantId, input) {
 
 	const values = [widgetId, tenantId];
 	const assignments = fields.map((field, index) => {
-		values.push(input[field]);
+		const value = field === 'form_fields'
+			? JSON.stringify(normalizeFormFields(input[field]))
+			: field === 'display_options'
+				? JSON.stringify(input[field] ?? {})
+				: input[field];
+		values.push(value);
 		return `${field} = $${index + 3}`;
 	});
 	values.push(new Date());

@@ -6,8 +6,8 @@ COPY package.json package-lock.json ./
 
 RUN npm ci
 
-COPY . .
+COPY src ./src
 
 EXPOSE 3000
 
-CMD ["node", "index.js"]
+CMD ["node", "src/index.js"]

@@ -1,6 +1,6 @@
 name: flyrank-capstone-widget-platform
 run: docker compose up -d --build
-seed: npm --prefix src run seed:demo
+seed: npm --prefix backend run seed:demo
 base_url: http://localhost:3000
 second_origin:
   command: python -m http.server 4173

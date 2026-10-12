@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 
-dotenv.config({ path: new URL('../../.env', import.meta.url), override: true });
+dotenv.config({ path: new URL('../../../.env', import.meta.url), override: true });
 
 const { pool } = await import('../services/databaseService.js');
 
