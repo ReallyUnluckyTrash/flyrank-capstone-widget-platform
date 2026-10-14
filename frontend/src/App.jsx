@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, BarChart3, Bolt, Check, ChevronDown, CircleHelp, Code2, Copy, ExternalLink, Eye, FileText, Globe2, Inbox, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TrendingUp, Users, WalletCards, X, Zap } from 'lucide-react';
 import { api, getWidgetEmbedSnippet, jsonBody, session } from './api.js';
 
@@ -8,6 +9,12 @@ const fmt = new Intl.NumberFormat(locale);
 const shortDate = (value) => new Date(value).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 const dateTime = (value) => new Date(value).toLocaleString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const unwrap = (value) => value?.data ?? value;
+
+async function fetchWidgets() {
+  const [widgetResult, statResult] = await Promise.all([api('/widgets'), api('/dashboard/stats/widget')]);
+  const stats = new Map((unwrap(statResult) || []).map((item) => [item.widget_id, Number(item.submissions)]));
+  return (unwrap(widgetResult) || []).map((widget) => ({ ...widget, submission_count: stats.get(widget.id) || 0 }));
+}
 
 function Notice({ message, kind = 'error' }) {
   if (!message) return null;
@@ -59,6 +66,7 @@ function App() {
   const [checking, setChecking] = useState(Boolean(session.token));
   const [mobileNav, setMobileNav] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!session.token) { setChecking(false); setProfile(null); return; }
@@ -72,6 +80,7 @@ function App() {
 
   function signOut() {
     session.clear();
+    queryClient.clear();
     setProfile(null);
     navigate('/login');
   }
@@ -197,35 +206,31 @@ function PageHeading({ eyebrow, title, description, action }) {
 }
 
 function AnalyticsPage() {
-  const [data, setData] = useState({ overview: null, series: [], widgets: [], countries: [], feed: [] });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [windowDays, setWindowDays] = useState(30);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        setError('');
-        const from = new Date(Date.now() - windowDays * 86400000).toISOString();
-        const [overview, series, widgets, countries] = await Promise.all([
-          api('/dashboard/stats/overview'),
-          api(`/dashboard/stats/timeseries?from=${encodeURIComponent(from)}`),
-          api('/dashboard/stats/widget'),
-          api('/dashboard/stats/country'),
-        ]);
-        const feedResults = await Promise.all((unwrap(widgets) || []).slice(0, 5).map((widget) => api(`/widgets/${widget.widget_id}/submissions?page=1&page_size=5`).catch(() => null)));
-        const names = new Map((unwrap(widgets) || []).map((widget) => [widget.widget_id, widget.title]));
-        const feed = feedResults.flatMap((result) => result?.data || []).map((item) => ({ ...item, widget_title: names.get(item.widget_id) || 'Widget' })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 7);
-        if (active) setData({ overview: unwrap(overview), series: unwrap(series) || [], widgets: unwrap(widgets) || [], countries: unwrap(countries) || [], feed });
-      } catch (requestError) { if (active) setError(requestError.message); }
-      finally { if (active) setLoading(false); }
-    }
-    load();
-    const timer = window.setInterval(load, 30000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [windowDays, refreshKey]);
+  const analyticsQuery = useQuery({
+    queryKey: ['analytics', windowDays],
+    queryFn: async () => {
+      const from = new Date(Date.now() - windowDays * 86400000).toISOString();
+      const [overview, series, widgets, countries, feed] = await Promise.all([
+        api('/dashboard/stats/overview'),
+        api(`/dashboard/stats/timeseries?from=${encodeURIComponent(from)}`),
+        api('/dashboard/stats/widget'),
+        api('/dashboard/stats/country'),
+        api('/dashboard/recent-submissions'),
+      ]);
+      return {
+        overview: unwrap(overview),
+        series: unwrap(series) || [],
+        widgets: unwrap(widgets) || [],
+        countries: unwrap(countries) || [],
+        feed: unwrap(feed) || [],
+      };
+    },
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+  });
+  const data = analyticsQuery.data || { overview: null, series: [], widgets: [], countries: [], feed: [] };
+  const loading = analyticsQuery.isLoading;
 
   const total = Number(data.overview?.total_submissions || 0);
   const spam = Number(data.overview?.spam_count || 0);
@@ -235,8 +240,8 @@ function AnalyticsPage() {
   const countries = [...data.countries].sort((a, b) => Number(b.submissions) - Number(a.submissions)).slice(0, 5);
 
   return <>
-    <PageHeading eyebrow="YOUR DATA, IN MOTION" title="Analytics overview" description="A live look at the submissions reaching your widgets." action={<div className="heading-actions"><label className="select-wrap"><span className="sr-only">Date range</span><select value={windowDays} onChange={(event) => setWindowDays(Number(event.target.value))}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select><ChevronDown size={15} /></label><button className="button secondary icon-label" onClick={() => { setLoading(true); setRefreshKey((value) => value + 1); }}><RefreshCw size={15} /><span>Refresh</span></button><Link className="button primary" to="/widgets/new"><Plus size={16} />New widget</Link></div>} />
-    <Notice message={error} />
+    <PageHeading eyebrow="YOUR DATA, IN MOTION" title="Analytics overview" description="A live look at the submissions reaching your widgets." action={<div className="heading-actions"><label className="select-wrap"><span className="sr-only">Date range</span><select value={windowDays} onChange={(event) => setWindowDays(Number(event.target.value))}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select><ChevronDown size={15} /></label><button className="button secondary icon-label" onClick={() => analyticsQuery.refetch()} disabled={analyticsQuery.isFetching} aria-busy={analyticsQuery.isFetching}><RefreshCw size={15} /><span>{analyticsQuery.isFetching ? 'Refreshing…' : 'Refresh'}</span></button><Link className="button primary" to="/widgets/new"><Plus size={16} />New widget</Link></div>} />
+    <Notice message={analyticsQuery.error?.message} />
     <div className="metric-grid">
       <Metric label="TOTAL SUBMISSIONS" value={fmt.format(total)} foot={`${fmt.format(valid)} accepted`} icon={Inbox} tone="mint" loading={loading} />
       <Metric label="ACTIVE WIDGETS" value={fmt.format(widgetsCount)} foot="Configured in this workspace" icon={WalletCards} tone="blue" loading={loading} />
@@ -253,7 +258,7 @@ function AnalyticsPage() {
       </section>
     </div>
     <section className="panel data-panel"><div className="panel-heading panel-heading-row"><div><span className="eyebrow">RECENT ACTIVITY</span><h2>Latest submissions</h2></div><Link className="text-link" to="/submissions">Browse widgets <ArrowRight size={15} /></Link></div>
-      {data.feed.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>RECEIVED</th><th>WIDGET</th><th>SUBMISSION</th><th>LOCATION</th><th>STATUS</th><th /></tr></thead><tbody>{data.feed.map((item) => <tr key={item.id}><td className="mono">{dateTime(item.created_at)}</td><td className="strong">{item.widget_title}</td><td>{Object.values(item.data || {}).find((value) => String(value).includes('@')) || Object.values(item.data || {})[0] || '—'}</td><td>{[item.city, item.country].filter(Boolean).join(', ') || 'Unknown'}</td><td><span className={`status-pill ${item.is_spam ? 'blocked' : 'valid'}`}><i />{item.is_spam ? 'Blocked' : 'Accepted'}</span></td><td><Link className="row-action" to={`/submissions/${item.widget_id}`} title="View widget submissions"><ArrowRight size={15} /></Link></td></tr>)}</tbody></table></div> : <EmptyState icon={Inbox} title={loading ? 'Loading submissions' : 'Your stream is quiet'} description={loading ? 'Fetching the latest activity.' : 'New submissions will appear here as soon as they arrive.'} />}
+      {data.feed.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>RECEIVED</th><th>WIDGET</th><th>SUBMISSION</th><th>LOCATION</th><th>STATUS</th><th /></tr></thead><tbody>{data.feed.map((item) => <tr key={item.id}><td className="mono">{dateTime(item.created_at)}</td><td className="strong">{item.widget_title}</td><td>{Object.values(item.data || {}).find((value) => String(value).includes('@')) || Object.values(item.data || {})[0] || '—'}</td><td>{[item.city, item.country].filter(Boolean).join(', ') || 'Unknown'}</td><td><span className={`status-pill ${item.is_spam ? 'blocked' : 'valid'}`}><i />{item.is_spam ? 'Blocked' : 'Accepted'}</span></td><td><Link className="row-action" to={`/submissions/${item.widget_id}`} title="View widget submissions" aria-label={`View submissions for ${item.widget_title}`}><ArrowRight size={15} /></Link></td></tr>)}</tbody></table></div> : <EmptyState icon={Inbox} title={loading ? 'Loading submissions' : 'Your stream is quiet'} description={loading ? 'Fetching the latest activity.' : 'New submissions will appear here as soon as they arrive.'} />}
       <div className="table-foot"><span><i className="status-dot" /> Refreshes every 30 seconds</span><span>Showing up to 7 latest entries</span></div>
     </section>
   </>;
@@ -277,16 +282,26 @@ function withClientId(field) {
 }
 
 function WidgetsPage() {
-  const [widgets, setWidgets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [widgetToDelete, setWidgetToDelete] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [copied, setCopied] = useState('');
+  const [actionError, setActionError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const widgetsQuery = useQuery({
+    queryKey: ['widgets'],
+    queryFn: fetchWidgets,
+  });
+  const widgets = widgetsQuery.data || [];
+  const deleteMutation = useMutation({
+    mutationFn: (widget) => api(`/widgets/${widget.id}`, { method: 'DELETE' }),
+    onSuccess: (_, widget) => {
+      queryClient.setQueryData(['widgets'], (items = []) => items.filter((item) => item.id !== widget.id));
+      setWidgetToDelete(null);
+    },
+  });
 
   useEffect(() => {
     if (location.state?.create) {
@@ -295,42 +310,25 @@ function WidgetsPage() {
     }
   }, [location, navigate]);
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([api('/widgets'), api('/dashboard/stats/widget')])
-      .then(([widgetResult, statResult]) => {
-        if (!active) return;
-        const stats = new Map((unwrap(statResult) || []).map((item) => [item.widget_id, Number(item.submissions)]));
-        setWidgets((unwrap(widgetResult) || []).map((widget) => ({ ...widget, submission_count: stats.get(widget.id) || 0 })));
-      })
-      .catch((err) => { if (active) setError(err.message); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [refreshKey]);
-
   const filtered = useMemo(() => widgets.filter((widget) => `${widget.title} ${widget.id}`.toLowerCase().includes(query.toLowerCase())), [widgets, query]);
 
-  async function removeWidget(widget) {
-    try { await api(`/widgets/${widget.id}`, { method: 'DELETE' }); setWidgets((items) => items.filter((item) => item.id !== widget.id)); }
-    catch (err) { setError(err.message); }
-    finally { setWidgetToDelete(null); }
-  }
+  function removeWidget(widget) { deleteMutation.mutate(widget); }
 
   async function copySnippet(widget) {
     const snippet = getWidgetEmbedSnippet(widget.id);
     try { await navigator.clipboard.writeText(snippet); setCopied(widget.id); window.setTimeout(() => setCopied(''), 1600); }
-    catch { setError('Clipboard access is unavailable in this browser.'); }
+    catch { setActionError('Clipboard access is unavailable in this browser.'); }
   }
 
   return <>
     <PageHeading eyebrow="CONFIGURE YOUR CAPTURE" title="Widgets" description="Create, refine, and publish the forms collecting your submissions." action={<button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={16} />Create widget</button>} />
-    <Notice message={error} />
-    <section className="panel widgets-panel"><div className="list-toolbar"><div className="list-summary"><span className="eyebrow">YOUR CONFIGURATIONS</span><h2>Widget library <span>{widgets.length}</span></h2></div><div className="list-filters"><label className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search widgets" /></label><button className="icon-button filter-refresh" title="Refresh widgets" aria-label="Refresh widgets" onClick={() => { setLoading(true); setRefreshKey((value) => value + 1); }}><RefreshCw size={16} /></button></div></div>
-      {loading ? <div className="loading-row"><span className="loader" />Loading widget configurations</div> : filtered.length ? <div className="table-scroll"><table className="data-table widgets-table"><thead><tr><th>WIDGET</th><th>FIELDS</th><th>SUBMISSIONS</th><th>CREATED</th><th>STATUS</th><th className="align-right">ACTIONS</th></tr></thead><tbody>{filtered.map((widget) => <WidgetRow key={widget.id} widget={widget} onEdit={() => navigate(`/widgets/${widget.id}`)} onDelete={() => setWidgetToDelete(widget)} onCopy={() => copySnippet(widget)} copied={copied === widget.id} />)}</tbody></table></div> : <EmptyState icon={WalletCards} title={query ? 'No matching widgets' : 'No widgets configured'} description={query ? 'Try a different search term.' : 'Create your first capture form and publish it on your site.'} action={!query && <button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={15} />Create widget</button>} />}
+    <Notice message={actionError || widgetsQuery.error?.message} />
+    <section className="panel widgets-panel"><div className="list-toolbar"><div className="list-summary"><span className="eyebrow">YOUR CONFIGURATIONS</span><h2>Widget library <span>{widgets.length}</span></h2></div><div className="list-filters"><label className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search widgets" /></label><button className="icon-button filter-refresh" title="Refresh widgets" aria-label="Refresh widgets" onClick={() => widgetsQuery.refetch()} disabled={widgetsQuery.isFetching} aria-busy={widgetsQuery.isFetching}><RefreshCw size={16} /></button></div></div>
+      {widgetsQuery.isLoading ? <div className="loading-row"><span className="loader" />Loading widget configurations</div> : filtered.length ? <div className="table-scroll"><table className="data-table widgets-table"><thead><tr><th>WIDGET</th><th>FIELDS</th><th>SUBMISSIONS</th><th>CREATED</th><th>STATUS</th><th className="align-right">ACTIONS</th></tr></thead><tbody>{filtered.map((widget) => <WidgetRow key={widget.id} widget={widget} onEdit={() => navigate(`/widgets/${widget.id}`)} onDelete={() => { deleteMutation.reset(); setWidgetToDelete(widget); }} onCopy={() => copySnippet(widget)} copied={copied === widget.id} />)}</tbody></table></div> : <EmptyState icon={WalletCards} title={query ? 'No matching widgets' : 'No widgets configured'} description={query ? 'Try a different search term.' : 'Create your first capture form and publish it on your site.'} action={!query && <button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={15} />Create widget</button>} />}
       <div className="table-foot"><span>Showing {filtered.length} of {widgets.length} widgets</span><span>Widget configurations are private to your workspace</span></div>
     </section>
-    {editorOpen && <WidgetFormModal onClose={() => setEditorOpen(false)} onSaved={(saved) => { const widget = { ...saved, form_fields: Array.isArray(saved.form_fields) ? saved.form_fields : [], created_at: saved.created_at || new Date().toISOString(), submission_count: Number(saved.submission_count || 0) }; setWidgets((items) => [widget, ...items.filter((item) => item.id !== widget.id)]); setEditorOpen(false); navigate(`/widgets/${widget.id}`); }} />}
-    {widgetToDelete && <ModalDialog ariaLabel="Confirm widget deletion" onClose={() => setWidgetToDelete(null)}><div className="modal-heading"><div><span className="eyebrow">DELETE WIDGET</span><h2>Delete “{widgetToDelete.title}”?</h2><p>This also permanently deletes its submissions.</p></div><button className="icon-button" aria-label="Close delete confirmation" onClick={() => setWidgetToDelete(null)}><X size={18} /></button></div><div className="modal-actions"><button className="button secondary" onClick={() => setWidgetToDelete(null)}>Cancel</button><button className="button danger-button" onClick={() => removeWidget(widgetToDelete)}>Delete widget</button></div></ModalDialog>}
+    {editorOpen && <WidgetFormModal onClose={() => setEditorOpen(false)} onSaved={(saved) => { const widget = { ...saved, form_fields: Array.isArray(saved.form_fields) ? saved.form_fields : [], created_at: saved.created_at || new Date().toISOString(), submission_count: Number(saved.submission_count || 0) }; queryClient.setQueryData(['widgets'], (items = []) => [widget, ...items.filter((item) => item.id !== widget.id)]); queryClient.invalidateQueries({ queryKey: ['widgets'] }); setEditorOpen(false); navigate(`/widgets/${widget.id}`); }} />}
+    {widgetToDelete && <ModalDialog ariaLabel="Confirm widget deletion" onClose={() => { if (!deleteMutation.isPending) setWidgetToDelete(null); }}><div className="modal-heading"><div><span className="eyebrow">DELETE WIDGET</span><h2>Delete “{widgetToDelete.title}”?</h2><p>This also permanently deletes its submissions.</p></div><button className="icon-button" aria-label="Close delete confirmation" disabled={deleteMutation.isPending} onClick={() => setWidgetToDelete(null)}><X size={18} /></button></div><Notice message={deleteMutation.error?.message} /><div className="modal-actions"><button className="button secondary" disabled={deleteMutation.isPending} onClick={() => setWidgetToDelete(null)}>Cancel</button><button className="button danger-button" disabled={deleteMutation.isPending} onClick={() => removeWidget(widgetToDelete)}>{deleteMutation.isPending ? 'Deleting…' : 'Delete widget'}</button></div></ModalDialog>}
   </>;
 }
 
@@ -344,8 +342,14 @@ function WidgetFormModal({ widget, onClose, onSaved }) {
   const [description, setDescription] = useState(widget?.description || '');
   const [buttonText, setButtonText] = useState(widget?.button_text || 'Sign up');
   const [fields, setFields] = useState(() => (widget?.form_fields || defaultFields).filter((field) => !field.honeypot).map(withClientId));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [validationError, setValidationError] = useState('');
+  const saveMutation = useMutation({
+    mutationFn: (body) => widget
+      ? api(`/widgets/${widget.id}`, { method: 'PATCH', body: jsonBody(body) })
+      : api('/widgets', { method: 'POST', body: jsonBody(body) }),
+  });
+  const busy = saveMutation.isPending;
+  const error = validationError || saveMutation.error?.message;
   const duplicateFieldIds = useMemo(() => {
     const counts = new Map();
     fields.forEach((field) => {
@@ -355,17 +359,22 @@ function WidgetFormModal({ widget, onClose, onSaved }) {
     return new Set(fields.filter((field) => field.name.trim() && counts.get(field.name.trim().toLowerCase()) > 1).map((field) => field.id));
   }, [fields]);
 
-  async function submit(event) {
-    event.preventDefault(); setBusy(true); setError('');
-    try {
-      if (!fields.length || fields.some((field) => !field.name.trim() || !field.label.trim() || !field.type)) throw new Error('Add at least one field with a label, key, and type.');
-      if (duplicateFieldIds.size) throw new Error('Each field key must be unique.');
-      const formFields = fields.map(({ id, ...field }) => field);
-      const body = { title, description, button_text: buttonText, form_fields: formFields };
-      const response = widget ? await api(`/widgets/${widget.id}`, { method: 'PATCH', body: jsonBody(body) }) : await api('/widgets', { method: 'POST', body: jsonBody(body) });
-      onSaved(unwrap(response));
-    } catch (err) { setError(err.message); }
-    finally { setBusy(false); }
+  function submit(event) {
+    event.preventDefault();
+    saveMutation.reset();
+    if (!fields.length || fields.some((field) => !field.name.trim() || !field.label.trim() || !field.type)) {
+      setValidationError('Add at least one field with a label, key, and type.');
+      return;
+    }
+    if (duplicateFieldIds.size) {
+      setValidationError('Each field key must be unique.');
+      return;
+    }
+    setValidationError('');
+    const formFields = fields.map(({ id, ...field }) => field);
+    saveMutation.mutate({ title, description, button_text: buttonText, form_fields: formFields }, {
+      onSuccess: (response) => onSaved(unwrap(response)),
+    });
   }
 
   return <ModalDialog ariaLabel={widget ? 'Edit widget configuration' : 'Create a widget'} className="builder-modal" onClose={onClose}><div className="modal-heading"><div><span className="eyebrow">{widget ? 'EDIT CONFIGURATION' : 'FAST PROVISION'}</span><h2>{widget ? 'Update widget' : 'Create a widget'}</h2><p>Set up the public capture form and its fields.</p></div><button className="icon-button" aria-label="Close widget form" onClick={onClose}><X size={18} /></button></div><Notice message={error} /><form onSubmit={submit} className="widget-form"><div className="builder-modal-grid"><div className="builder-fields"><label>Widget title<input required maxLength="120" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Product updates" /></label><label>Description <span className="optional">OPTIONAL</span><textarea rows="2" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Tell visitors what happens when they sign up." /></label><label>Submit button text<input required maxLength="60" value={buttonText} onChange={(event) => setButtonText(event.target.value)} /></label><FieldConfigurator fields={fields} setFields={setFields} duplicateFieldIds={duplicateFieldIds} /></div><div className="field-preview"><div className="preview-toolbar"><span><i /> LIVE PREVIEW</span><span>WIDGET / FORM</span></div><div className="preview-card"><span className="preview-brand"><Zap size={12} fill="currentColor" /> FLYRANK WIDGET</span><h3>{title || 'Your widget title'}</h3><p>{description || 'Your description will appear here.'}</p>{fields.filter((field) => !field.honeypot).map((field) => <div className="preview-input" key={field.id}><span>{field.label || field.name}{field.required && <b> *</b>}</span><i /></div>)}<button type="button" className="preview-submit">{buttonText || 'Sign up'} <ArrowRight size={13} /></button><small>Protected by spam filtering</small></div></div></div><div className="form-hint"><ShieldCheck size={15} /> A honeypot field is added automatically to reduce spam.</div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy ? 'Saving…' : widget ? 'Save changes' : 'Create widget'}<ArrowRight size={15} /></button></div></form></ModalDialog>;
@@ -386,14 +395,20 @@ function FieldConfigurator({ fields, setFields, duplicateFieldIds }) {
 
 function WidgetEditorPage() {
   const { id } = useParams();
-  const [widget, setWidget] = useState(null);
-  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const widgetQuery = useQuery({
+    queryKey: ['widget', id],
+    queryFn: async () => unwrap(await api(`/widgets/${id}`)),
+    enabled: id !== 'new',
+  });
+  const widget = widgetQuery.data;
   useEffect(() => {
     if (id === 'new') { navigate('/widgets', { replace: true, state: { create: true } }); return; }
-    api(`/widgets/${id}`).then((result) => setWidget(unwrap(result))).catch((err) => setError(err.message));
+    setEditing(false);
   }, [id, navigate]);
   async function copy() {
     if (!widget) return;
@@ -401,51 +416,45 @@ function WidgetEditorPage() {
       await navigator.clipboard.writeText(getWidgetEmbedSnippet(widget.id));
       setCopied(true); window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      setError('Clipboard access is unavailable in this browser.');
+      setActionError('Clipboard access is unavailable in this browser.');
     }
   }
   return <>
     <div className="back-row"><Link to="/widgets"><ArrowLeft size={16} />All widgets</Link></div>
     <PageHeading eyebrow="WIDGET CONFIGURATION" title={widget?.title || 'Widget details'} description="Edit the form settings and copy the embed code for your site." action={widget && <button className="button secondary" onClick={copy}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? 'Copied' : 'Copy embed'}</button>} />
-    <Notice message={error} />
+    <Notice message={actionError || widgetQuery.error?.message} />
+    {widgetQuery.isLoading && <div className="loading-row"><span className="loader" />Loading widget configuration</div>}
     {widget && <div className="editor-grid"><section className="panel editor-panel"><div className="panel-heading"><div><span className="eyebrow">FORM SCHEMA</span><h2>Configuration</h2></div><span className="id-tag">{widget.id.slice(0, 8)}</span></div><div className="detail-list"><Detail label="Display title" value={widget.title} /><Detail label="Description" value={widget.description || 'No description'} /><Detail label="Button text" value={widget.button_text} /><Detail label="Created" value={dateTime(widget.created_at)} /></div><h3 className="subsection-title">Capture fields <span>{(widget.form_fields || []).filter((field) => !field.honeypot).length}</span></h3><div className="field-list">{(widget.form_fields || []).filter((field) => !field.honeypot).map((field) => <div className="field-row" key={field.name}><span className="field-type-icon"><FileText size={15} /></span><span><b>{field.label}</b><small className="mono">{field.name} · {field.type}</small></span><span className={`field-required ${field.required ? 'required' : ''}`}>{field.required ? 'Required' : 'Optional'}</span></div>)}</div><button className="button primary editor-edit" onClick={() => setEditing(true)}><SlidersHorizontal size={15} />Edit configuration</button></section><section className="panel snippet-panel"><div className="panel-heading"><div><span className="eyebrow">PUBLISH</span><h2>Embed on your site</h2></div><Code2 size={18} className="muted-icon" /></div><p>Add this script to your page. It loads the published form from your widget configuration.</p><pre className="snippet-code"><code>{getWidgetEmbedSnippet(widget.id)}</code></pre><button className="button secondary" onClick={copy}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? 'Copied' : 'Copy snippet'}</button><div className="snippet-note"><ShieldCheck size={16} /><span><b>Public configuration</b><small>The form can be loaded without an account. Only this widget's public fields are exposed.</small></span></div></section></div>}
-    {editing && widget && <WidgetFormModal widget={widget} onClose={() => setEditing(false)} onSaved={(saved) => { setWidget(saved); setEditing(false); }} />}
+    {editing && widget && <WidgetFormModal widget={widget} onClose={() => setEditing(false)} onSaved={(saved) => { queryClient.setQueryData(['widget', id], saved); queryClient.invalidateQueries({ queryKey: ['widgets'] }); setEditing(false); }} />}
   </>;
 }
 function Detail({ label, value }) { return <div className="detail-row"><span>{label}</span><b>{value}</b></div>; }
 
 function SubmissionsPage() {
   const { id: routeId } = useParams();
-  const initialRouteId = useRef(routeId);
-  const [widgets, setWidgets] = useState([]);
-  const [page, setPage] = useState(1);
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [pageState, setPageState] = useState({ routeId, page: 1 });
   const selectedId = routeId || '';
-  const selected = widgets.find((widget) => widget.id === selectedId);
   const navigate = useNavigate();
+  const widgetsQuery = useQuery({
+    queryKey: ['widgets'],
+    queryFn: fetchWidgets,
+  });
+  const widgets = widgetsQuery.data || [];
+  const selected = widgets.find((widget) => widget.id === selectedId);
+  const page = pageState.routeId === routeId ? pageState.page : 1;
+  const submissionsQuery = useQuery({
+    queryKey: ['submissions', selectedId, page],
+    queryFn: () => api(`/widgets/${selectedId}/submissions?page=${page}&page_size=25`),
+    enabled: Boolean(selectedId),
+  });
+  const result = submissionsQuery.data;
+  const loading = submissionsQuery.isLoading;
 
   useEffect(() => {
-    api('/widgets').then((response) => {
-      const items = unwrap(response) || [];
-      setWidgets(items);
-      if (!initialRouteId.current && items.length) {
-        initialRouteId.current = items[0].id;
-        navigate(`/submissions/${items[0].id}`, { replace: true });
-      }
-    }).catch((err) => setError(err.message));
-  }, [navigate]);
-  useEffect(() => { setPage(1); }, [routeId]);
-  useEffect(() => {
-    if (!selectedId) { setLoading(false); setResult(null); return; }
-    let active = true; setLoading(true); setError('');
-    api(`/widgets/${selectedId}/submissions?page=${page}&page_size=25`).then((data) => { if (active) setResult(data); }).catch((err) => { if (active) setError(err.message); }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [routeId, page, refreshKey]);
+    setPageState((current) => current.routeId === routeId ? current : { routeId, page: 1 });
+  }, [routeId]);
 
-  function changeWidget(value) { setPage(1); navigate(value ? `/submissions/${value}` : '/submissions', { replace: true }); }
+  function changeWidget(value) { navigate(value ? `/submissions/${value}` : '/submissions', { replace: true }); }
   function exportCsv() {
     const rows = result?.data || [];
     const keys = [...new Set(rows.flatMap((item) => Object.keys(item.data || {})))];
@@ -466,11 +475,11 @@ function SubmissionsPage() {
   const entries = result?.data || [];
   const pagination = result?.pagination;
   return <>
-    <PageHeading eyebrow="INCOMING DATA" title="Submissions" description="Inspect the entries captured by each widget." action={<div className="heading-actions">{selected && <button className="button secondary" onClick={exportCsv} disabled={!entries.length}><ArrowDownToLine size={15} />Export this page</button>}<button className="button secondary icon-only" onClick={() => setRefreshKey((value) => value + 1)} title="Refresh submissions" aria-label="Refresh submissions"><RefreshCw size={15} /></button></div>} />
-    <Notice message={error} />
-    <section className="panel submissions-panel"><div className="submission-toolbar"><div><span className="eyebrow">FILTER BY WIDGET</span><h2>{selected?.title || 'All widgets'}</h2></div><label className="select-wrap widget-select"><span className="sr-only">Choose widget</span><select value={selectedId} onChange={(event) => changeWidget(event.target.value)}><option value="">Choose a widget</option>{widgets.map((widget) => <option value={widget.id} key={widget.id}>{widget.title}</option>)}</select><ChevronDown size={15} /></label></div>
+    <PageHeading eyebrow="INCOMING DATA" title="Submissions" description="Inspect the entries captured by each widget." action={<div className="heading-actions">{selected && <button className="button secondary" onClick={exportCsv} disabled={!entries.length}><ArrowDownToLine size={15} />Export this page</button>}<button className="button secondary icon-only" onClick={() => submissionsQuery.refetch()} title="Refresh submissions" aria-label="Refresh submissions" disabled={!selectedId || submissionsQuery.isFetching} aria-busy={submissionsQuery.isFetching}><RefreshCw size={15} /></button></div>} />
+    <Notice message={submissionsQuery.error?.message || widgetsQuery.error?.message} />
+    <section className="panel submissions-panel"><div className="submission-toolbar"><div><span className="eyebrow">FILTER BY WIDGET</span><h2>{selected?.title || 'All widgets'}</h2></div><label className="select-wrap widget-select"><span className="sr-only">Choose widget</span><select value={selectedId} onChange={(event) => changeWidget(event.target.value)}><option value="">Choose a widget</option>{widgets.map((widget) => <option value={widget.id} key={widget.id}>{widget.title}</option>)}</select><ChevronDown size={15} /></label><button className="button secondary icon-only" onClick={() => submissionsQuery.refetch()} title="Refresh submissions" aria-label="Refresh submissions" disabled={!selectedId || submissionsQuery.isFetching} aria-busy={submissionsQuery.isFetching}><RefreshCw size={15} /></button></div>
       {loading ? <div className="loading-row"><span className="loader" />Loading submissions</div> : !selectedId ? <EmptyState icon={Inbox} title="Choose a widget" description="Select a widget above to inspect its submissions." action={<Link className="button primary" to="/widgets"><WalletCards size={15} />Manage widgets</Link>} /> : entries.length ? <div className="table-scroll"><table className="data-table submissions-table"><thead><tr><th>RECEIVED</th><th>CONTACT</th><th>LOCATION</th><th>FORM DATA</th><th>STATUS</th></tr></thead><tbody>{entries.map((item) => { const values = Object.entries(item.data || {}); const contact = values.find(([key]) => key.toLowerCase().includes('email'))?.[1] || values.find(([key]) => key.toLowerCase().includes('name'))?.[1] || 'Submission'; return <tr key={item.id}><td className="mono">{dateTime(item.created_at)}</td><td><b>{contact}</b><small className="mono block-id">{item.id.slice(0, 8)}</small></td><td>{[item.city, item.country].filter(Boolean).join(', ') || 'Unknown'}</td><td><div className="payload-values">{values.slice(0, 3).map(([key, value]) => <span key={key}><small>{key}</small>{String(value)}</span>)}</div></td><td><span className={`status-pill ${item.is_spam ? 'blocked' : 'valid'}`}><i />{item.is_spam ? 'Blocked' : 'Accepted'}</span></td></tr>; })}</tbody></table></div> : <EmptyState icon={Inbox} title="No submissions yet" description="When this widget receives its first entry, it will show up here." action={<Link className="button secondary" to={`/widgets/${selectedId}`}><Code2 size={15} />View embed code</Link>} />}
-      {pagination && <div className="pagination"><span>{fmt.format(pagination.total)} total entries <span className="pagination-sep">·</span> Page {pagination.page} of {Math.max(pagination.total_pages, 1)}</span><div><button className="button secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</button><button className="button secondary" disabled={page >= pagination.total_pages} onClick={() => setPage((value) => value + 1)}>Next</button></div></div>}
+      {pagination && <div className="pagination"><span>{fmt.format(pagination.total)} total entries <span className="pagination-sep">·</span> Page {pagination.page} of {Math.max(pagination.total_pages, 1)}</span><div><button className="button secondary" disabled={page <= 1} onClick={() => setPageState({ routeId, page: page - 1 })}>Previous</button><button className="button secondary" disabled={page >= pagination.total_pages} onClick={() => setPageState({ routeId, page: page + 1 })}>Next</button></div></div>}
     </section>
   </>;
 }

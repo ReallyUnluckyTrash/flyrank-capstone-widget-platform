@@ -51,3 +51,17 @@ export async function getCountryStats(tenantId) {
 	return result.rows;
 }
 
+export async function getRecentSubmissions(tenantId) {
+	const result = await pool.query(
+		`SELECT s.id, s.widget_id, w.title AS widget_title, s.data,
+			s.country, s.city, s.is_spam, s.created_at
+		 FROM submissions s
+		 INNER JOIN widgets w
+			ON w.id = s.widget_id AND w.tenant_id = s.tenant_id
+		 WHERE s.tenant_id = $1
+		 ORDER BY s.created_at DESC, s.id DESC
+		 LIMIT 7`,
+		[tenantId],
+	);
+	return result.rows;
+}

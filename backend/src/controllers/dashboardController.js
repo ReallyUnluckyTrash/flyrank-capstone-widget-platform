@@ -1,6 +1,7 @@
 import {
 	getCountryStats,
 	getOverviewStats,
+	getRecentSubmissions,
 	getSubmissionTimeseries,
 	getWidgetStats,
 } from '../services/dashboardService.js';
@@ -69,6 +70,15 @@ export const dashboardController = {
 			return res.status(200).send({ data: stats });
 		} catch (error) {
 			return handleError(error, res, 'Unable to load country statistics');
+		}
+	},
+
+	async getRecentSubmissions(req, res) {
+		try {
+			const submissions = await getRecentSubmissions(getTenantId(req));
+			return res.status(200).send({ data: submissions });
+		} catch (error) {
+			return handleError(error, res, 'Unable to load recent submissions');
 		}
 	},
 };
