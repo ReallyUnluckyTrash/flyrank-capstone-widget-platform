@@ -73,6 +73,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .button.primary:hover:not(:disabled) { background: var(--green-dark); }
 .button.secondary { color: #425148; border-color: #dfe6df; background: #fff; }
 .button.secondary:hover:not(:disabled) { border-color: #bfcec2; background: #f9fbf9; }
+.button.danger-button { color: #fff; background: #b94032; }
+.button.danger-button:hover:not(:disabled) { background: #9f3025; }
 .auth-submit { width: 100%; min-height: 45px; justify-content: space-between; margin-top: 7px; padding: 0 14px 0 16px; }
 .button-loader { width: 14px; height: 14px; border-color: rgba(255,255,255,.4); border-top-color: #fff; }
 .auth-switch { margin: 22px 0 26px; text-align: center; color: var(--muted); font-size: 12px; }

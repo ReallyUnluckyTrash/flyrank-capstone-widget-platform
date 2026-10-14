@@ -3,14 +3,55 @@ import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, usePa
 import { ArrowDownToLine, ArrowLeft, ArrowRight, BarChart3, Bolt, Check, ChevronDown, CircleHelp, Code2, Copy, ExternalLink, Eye, FileText, Globe2, Inbox, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TrendingUp, Users, WalletCards, X, Zap } from 'lucide-react';
 import { api, getWidgetEmbedSnippet, jsonBody, session } from './api.js';
 
-const fmt = new Intl.NumberFormat('en-US');
-const shortDate = (value) => new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-const dateTime = (value) => new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const locale = 'en-US';
+const fmt = new Intl.NumberFormat(locale);
+const shortDate = (value) => new Date(value).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+const dateTime = (value) => new Date(value).toLocaleString(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const unwrap = (value) => value?.data ?? value;
 
 function Notice({ message, kind = 'error' }) {
   if (!message) return null;
-  return <div className={`notice ${kind}`} role="status">{kind === 'error' ? <CircleHelp size={16} /> : <Check size={16} />}{message}</div>;
+  return <div className={`notice ${kind}`} role={kind === 'error' ? 'alert' : 'status'}>{kind === 'error' ? <CircleHelp size={16} /> : <Check size={16} />}{message}</div>;
+}
+
+function ModalDialog({ children, onClose, ariaLabel, className = '' }) {
+  const dialogRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = () => [...dialog.querySelectorAll(focusableSelector)];
+    (focusable()[0] || dialog).focus();
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+      } else if (event.key === 'Tab') {
+        const items = focusable();
+        if (!items.length) {
+          event.preventDefault();
+          dialog.focus();
+        } else if (event.shiftKey && (document.activeElement === items[0] || !dialog.contains(document.activeElement))) {
+          event.preventDefault();
+          items[items.length - 1].focus();
+        } else if (!event.shiftKey && (document.activeElement === items[items.length - 1] || !dialog.contains(document.activeElement))) {
+          event.preventDefault();
+          items[0].focus();
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
+
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section ref={dialogRef} className={`modal-card ${className}`} role="dialog" aria-modal="true" aria-label={ariaLabel} tabIndex={-1}>{children}</section></div>;
 }
 
 function App() {
@@ -95,19 +136,50 @@ const navItems = [
 
 function Workspace({ profile, onSignOut, mobileNav, setMobileNav }) {
   const location = useLocation();
+  const menuButtonRef = useRef(null);
+  const sidebarRef = useRef(null);
   const title = location.pathname.startsWith('/widgets') ? 'Widget studio' : location.pathname.startsWith('/submissions') ? 'Submissions' : 'Analytics overview';
   const initials = (profile.email || 'U').slice(0, 1).toUpperCase();
+  useEffect(() => {
+    if (!mobileNav) return undefined;
+    const sidebar = sidebarRef.current;
+    const focusableSelector = 'a[href], button:not([disabled])';
+    const focusable = () => [...sidebar.querySelectorAll(focusableSelector)];
+    focusable()[0]?.focus();
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setMobileNav(false);
+        menuButtonRef.current?.focus();
+      } else if (event.key === 'Tab') {
+        const items = focusable();
+        if (!items.length) return;
+        if (event.shiftKey && (document.activeElement === items[0] || !sidebar.contains(document.activeElement))) {
+          event.preventDefault();
+          items[items.length - 1].focus();
+        } else if (!event.shiftKey && (document.activeElement === items[items.length - 1] || !sidebar.contains(document.activeElement))) {
+          event.preventDefault();
+          items[0].focus();
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [mobileNav, setMobileNav]);
+  function closeMobileNav() {
+    setMobileNav(false);
+    menuButtonRef.current?.focus();
+  }
   return <div className="app-shell">
-    <aside className={`sidebar ${mobileNav ? 'open' : ''}`}>
+    <aside ref={sidebarRef} id="workspace-nav" className={`sidebar ${mobileNav ? 'open' : ''}`}>
       <Link to="/analytics" className="sidebar-brand"><span className="brand-mark"><Zap size={17} fill="currentColor" /></span><span>FLYRANK WIDGETS</span></Link>
       <div className="workspace-select"><span className="workspace-avatar">{initials}</span><span><small>WORKSPACE</small><b>{profile.email.split('@')[1] || 'Personal'}</b></span></div>
       <span className="nav-heading">WORKSPACE</span>
-      <nav className="side-nav">{navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setMobileNav(false)} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span></NavLink>)}</nav>
+      <nav className="side-nav" aria-label="Workspace">{navItems.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={closeMobileNav} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><Icon size={18} /><span>{label}</span></NavLink>)}</nav>
       <div className="sidebar-bottom"><button className="nav-item signout" onClick={onSignOut}><LogOut size={18} /><span>Sign out</span></button></div>
     </aside>
-    {mobileNav && <button className="mobile-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
+    {mobileNav && <button className="mobile-scrim" aria-label="Close navigation" onClick={closeMobileNav} />}
     <div className="main-column">
-      <header className="topbar"><button className="icon-button menu-toggle" aria-label="Open navigation" onClick={() => setMobileNav(true)}><Menu size={20} /></button><div className="breadcrumb"><span>WORKSPACE</span><span className="breadcrumb-slash">/</span><b>{title}</b></div><div className="topbar-right"><div className="user-menu"><span className="user-avatar">{initials}</span><span><b>{profile.email}</b><small>Workspace owner</small></span></div><button className="icon-button mobile-signout" title="Sign out" onClick={onSignOut}><LogOut size={18} /></button></div></header>
+      <header className="topbar"><button ref={menuButtonRef} className="icon-button menu-toggle" aria-label="Open navigation" aria-expanded={mobileNav} aria-controls="workspace-nav" onClick={() => setMobileNav(true)}><Menu size={20} /></button><div className="breadcrumb"><span>WORKSPACE</span><span className="breadcrumb-slash">/</span><b>{title}</b></div><div className="topbar-right"><div className="user-menu"><span className="user-avatar">{initials}</span><span><b>{profile.email}</b><small>Workspace owner</small></span></div><button className="icon-button mobile-signout" title="Sign out" aria-label="Sign out" onClick={onSignOut}><LogOut size={18} /></button></div></header>
       <main className="page-content"><Routes>
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="widgets" element={<WidgetsPage />} />
@@ -210,6 +282,7 @@ function WidgetsPage() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
+  const [widgetToDelete, setWidgetToDelete] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [copied, setCopied] = useState('');
   const navigate = useNavigate();
@@ -238,9 +311,9 @@ function WidgetsPage() {
   const filtered = useMemo(() => widgets.filter((widget) => `${widget.title} ${widget.id}`.toLowerCase().includes(query.toLowerCase())), [widgets, query]);
 
   async function removeWidget(widget) {
-    if (!window.confirm(`Delete “${widget.title}”? This also deletes its submissions.`)) return;
     try { await api(`/widgets/${widget.id}`, { method: 'DELETE' }); setWidgets((items) => items.filter((item) => item.id !== widget.id)); }
     catch (err) { setError(err.message); }
+    finally { setWidgetToDelete(null); }
   }
 
   async function copySnippet(widget) {
@@ -253,16 +326,17 @@ function WidgetsPage() {
     <PageHeading eyebrow="CONFIGURE YOUR CAPTURE" title="Widgets" description="Create, refine, and publish the forms collecting your submissions." action={<button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={16} />Create widget</button>} />
     <Notice message={error} />
     <section className="panel widgets-panel"><div className="list-toolbar"><div className="list-summary"><span className="eyebrow">YOUR CONFIGURATIONS</span><h2>Widget library <span>{widgets.length}</span></h2></div><div className="list-filters"><label className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search widgets" /></label><button className="icon-button filter-refresh" title="Refresh widgets" aria-label="Refresh widgets" onClick={() => { setLoading(true); setRefreshKey((value) => value + 1); }}><RefreshCw size={16} /></button></div></div>
-      {loading ? <div className="loading-row"><span className="loader" />Loading widget configurations</div> : filtered.length ? <div className="table-scroll"><table className="data-table widgets-table"><thead><tr><th>WIDGET</th><th>FIELDS</th><th>SUBMISSIONS</th><th>CREATED</th><th>STATUS</th><th className="align-right">ACTIONS</th></tr></thead><tbody>{filtered.map((widget) => <WidgetRow key={widget.id} widget={widget} onEdit={() => navigate(`/widgets/${widget.id}`)} onDelete={() => removeWidget(widget)} onCopy={() => copySnippet(widget)} copied={copied === widget.id} />)}</tbody></table></div> : <EmptyState icon={WalletCards} title={query ? 'No matching widgets' : 'No widgets configured'} description={query ? 'Try a different search term.' : 'Create your first capture form and publish it on your site.'} action={!query && <button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={15} />Create widget</button>} />}
+      {loading ? <div className="loading-row"><span className="loader" />Loading widget configurations</div> : filtered.length ? <div className="table-scroll"><table className="data-table widgets-table"><thead><tr><th>WIDGET</th><th>FIELDS</th><th>SUBMISSIONS</th><th>CREATED</th><th>STATUS</th><th className="align-right">ACTIONS</th></tr></thead><tbody>{filtered.map((widget) => <WidgetRow key={widget.id} widget={widget} onEdit={() => navigate(`/widgets/${widget.id}`)} onDelete={() => setWidgetToDelete(widget)} onCopy={() => copySnippet(widget)} copied={copied === widget.id} />)}</tbody></table></div> : <EmptyState icon={WalletCards} title={query ? 'No matching widgets' : 'No widgets configured'} description={query ? 'Try a different search term.' : 'Create your first capture form and publish it on your site.'} action={!query && <button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={15} />Create widget</button>} />}
       <div className="table-foot"><span>Showing {filtered.length} of {widgets.length} widgets</span><span>Widget configurations are private to your workspace</span></div>
     </section>
     {editorOpen && <WidgetFormModal onClose={() => setEditorOpen(false)} onSaved={(saved) => { const widget = { ...saved, form_fields: Array.isArray(saved.form_fields) ? saved.form_fields : [], created_at: saved.created_at || new Date().toISOString(), submission_count: Number(saved.submission_count || 0) }; setWidgets((items) => [widget, ...items.filter((item) => item.id !== widget.id)]); setEditorOpen(false); navigate(`/widgets/${widget.id}`); }} />}
+    {widgetToDelete && <ModalDialog ariaLabel="Confirm widget deletion" onClose={() => setWidgetToDelete(null)}><div className="modal-heading"><div><span className="eyebrow">DELETE WIDGET</span><h2>Delete “{widgetToDelete.title}”?</h2><p>This also permanently deletes its submissions.</p></div><button className="icon-button" aria-label="Close delete confirmation" onClick={() => setWidgetToDelete(null)}><X size={18} /></button></div><div className="modal-actions"><button className="button secondary" onClick={() => setWidgetToDelete(null)}>Cancel</button><button className="button danger-button" onClick={() => removeWidget(widgetToDelete)}>Delete widget</button></div></ModalDialog>}
   </>;
 }
 
 function WidgetRow({ widget, onEdit, onDelete, onCopy, copied }) {
   const fields = Array.isArray(widget.form_fields) ? widget.form_fields.filter((field) => !field.honeypot) : [];
-  return <tr><td><div className="widget-name-cell"><span className="widget-symbol"><Bolt size={17} /></span><span><b>{widget.title}</b><small className="mono">{widget.id}</small></span></div></td><td>{fields.length} {fields.length === 1 ? 'field' : 'fields'}</td><td className="mono">{fmt.format(widget.submission_count || 0)}</td><td>{shortDate(widget.created_at)}</td><td><span className="status-pill valid"><i />Configured</span></td><td><div className="row-actions"><button className="row-action" title={copied ? 'Copied' : 'Copy embed snippet'} onClick={onCopy}>{copied ? <Check size={16} /> : <Code2 size={16} />}</button><button className="row-action" title="Edit widget" onClick={onEdit}><SlidersHorizontal size={16} /></button><button className="row-action danger-action" title="Delete widget" onClick={onDelete}><Trash2 size={16} /></button></div></td></tr>;
+  return <tr><td><div className="widget-name-cell"><span className="widget-symbol"><Bolt size={17} /></span><span><b>{widget.title}</b><small className="mono">{widget.id}</small></span></div></td><td>{fields.length} {fields.length === 1 ? 'field' : 'fields'}</td><td className="mono">{fmt.format(widget.submission_count || 0)}</td><td>{shortDate(widget.created_at)}</td><td><span className="status-pill valid"><i />Configured</span></td><td><div className="row-actions"><button className="row-action" title={copied ? 'Copied' : 'Copy embed snippet'} aria-label={copied ? 'Copied embed snippet' : 'Copy embed snippet'} onClick={onCopy}>{copied ? <Check size={16} /> : <Code2 size={16} />}</button><button className="row-action" title="Edit widget" aria-label="Edit widget" onClick={onEdit}><SlidersHorizontal size={16} /></button><button className="row-action danger-action" title="Delete widget" aria-label="Delete widget" onClick={onDelete}><Trash2 size={16} /></button></div></td></tr>;
 }
 
 function WidgetFormModal({ widget, onClose, onSaved }) {
@@ -294,7 +368,7 @@ function WidgetFormModal({ widget, onClose, onSaved }) {
     finally { setBusy(false); }
   }
 
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card builder-modal"><div className="modal-heading"><div><span className="eyebrow">{widget ? 'EDIT CONFIGURATION' : 'FAST PROVISION'}</span><h2>{widget ? 'Update widget' : 'Create a widget'}</h2><p>Set up the public capture form and its fields.</p></div><button className="icon-button" onClick={onClose} title="Close"><X size={18} /></button></div><Notice message={error} /><form onSubmit={submit} className="widget-form"><div className="builder-modal-grid"><div className="builder-fields"><label>Widget title<input required maxLength="120" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Product updates" /></label><label>Description <span className="optional">OPTIONAL</span><textarea rows="2" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Tell visitors what happens when they sign up." /></label><label>Submit button text<input required maxLength="60" value={buttonText} onChange={(event) => setButtonText(event.target.value)} /></label><FieldConfigurator fields={fields} setFields={setFields} duplicateFieldIds={duplicateFieldIds} /></div><div className="field-preview"><div className="preview-toolbar"><span><i /> LIVE PREVIEW</span><span>WIDGET / FORM</span></div><div className="preview-card"><span className="preview-brand"><Zap size={12} fill="currentColor" /> FLYRANK WIDGET</span><h3>{title || 'Your widget title'}</h3><p>{description || 'Your description will appear here.'}</p>{fields.filter((field) => !field.honeypot).map((field) => <div className="preview-input" key={field.id}><span>{field.label || field.name}{field.required && <b> *</b>}</span><i /></div>)}<button type="button" className="preview-submit">{buttonText || 'Sign up'} <ArrowRight size={13} /></button><small>Protected by spam filtering</small></div></div></div><div className="form-hint"><ShieldCheck size={15} /> A honeypot field is added automatically to reduce spam.</div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy ? 'Saving…' : widget ? 'Save changes' : 'Create widget'}<ArrowRight size={15} /></button></div></form></section></div>;
+  return <ModalDialog ariaLabel={widget ? 'Edit widget configuration' : 'Create a widget'} className="builder-modal" onClose={onClose}><div className="modal-heading"><div><span className="eyebrow">{widget ? 'EDIT CONFIGURATION' : 'FAST PROVISION'}</span><h2>{widget ? 'Update widget' : 'Create a widget'}</h2><p>Set up the public capture form and its fields.</p></div><button className="icon-button" aria-label="Close widget form" onClick={onClose}><X size={18} /></button></div><Notice message={error} /><form onSubmit={submit} className="widget-form"><div className="builder-modal-grid"><div className="builder-fields"><label>Widget title<input required maxLength="120" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Product updates" /></label><label>Description <span className="optional">OPTIONAL</span><textarea rows="2" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Tell visitors what happens when they sign up." /></label><label>Submit button text<input required maxLength="60" value={buttonText} onChange={(event) => setButtonText(event.target.value)} /></label><FieldConfigurator fields={fields} setFields={setFields} duplicateFieldIds={duplicateFieldIds} /></div><div className="field-preview"><div className="preview-toolbar"><span><i /> LIVE PREVIEW</span><span>WIDGET / FORM</span></div><div className="preview-card"><span className="preview-brand"><Zap size={12} fill="currentColor" /> FLYRANK WIDGET</span><h3>{title || 'Your widget title'}</h3><p>{description || 'Your description will appear here.'}</p>{fields.filter((field) => !field.honeypot).map((field) => <div className="preview-input" key={field.id}><span>{field.label || field.name}{field.required && <b> *</b>}</span><i /></div>)}<button type="button" className="preview-submit">{buttonText || 'Sign up'} <ArrowRight size={13} /></button><small>Protected by spam filtering</small></div></div></div><div className="form-hint"><ShieldCheck size={15} /> A honeypot field is added automatically to reduce spam.</div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy ? 'Saving…' : widget ? 'Save changes' : 'Create widget'}<ArrowRight size={15} /></button></div></form></ModalDialog>;
 }
 
 function FieldConfigurator({ fields, setFields, duplicateFieldIds }) {
@@ -392,7 +466,7 @@ function SubmissionsPage() {
   const entries = result?.data || [];
   const pagination = result?.pagination;
   return <>
-    <PageHeading eyebrow="INCOMING DATA" title="Submissions" description="Inspect the entries captured by each widget." action={<div className="heading-actions">{selected && <button className="button secondary" onClick={exportCsv} disabled={!entries.length}><ArrowDownToLine size={15} />Export this page</button>}<button className="button secondary icon-only" onClick={() => setRefreshKey((value) => value + 1)} title="Refresh submissions"><RefreshCw size={15} /></button></div>} />
+    <PageHeading eyebrow="INCOMING DATA" title="Submissions" description="Inspect the entries captured by each widget." action={<div className="heading-actions">{selected && <button className="button secondary" onClick={exportCsv} disabled={!entries.length}><ArrowDownToLine size={15} />Export this page</button>}<button className="button secondary icon-only" onClick={() => setRefreshKey((value) => value + 1)} title="Refresh submissions" aria-label="Refresh submissions"><RefreshCw size={15} /></button></div>} />
     <Notice message={error} />
     <section className="panel submissions-panel"><div className="submission-toolbar"><div><span className="eyebrow">FILTER BY WIDGET</span><h2>{selected?.title || 'All widgets'}</h2></div><label className="select-wrap widget-select"><span className="sr-only">Choose widget</span><select value={selectedId} onChange={(event) => changeWidget(event.target.value)}><option value="">Choose a widget</option>{widgets.map((widget) => <option value={widget.id} key={widget.id}>{widget.title}</option>)}</select><ChevronDown size={15} /></label></div>
       {loading ? <div className="loading-row"><span className="loader" />Loading submissions</div> : !selectedId ? <EmptyState icon={Inbox} title="Choose a widget" description="Select a widget above to inspect its submissions." action={<Link className="button primary" to="/widgets"><WalletCards size={15} />Manage widgets</Link>} /> : entries.length ? <div className="table-scroll"><table className="data-table submissions-table"><thead><tr><th>RECEIVED</th><th>CONTACT</th><th>LOCATION</th><th>FORM DATA</th><th>STATUS</th></tr></thead><tbody>{entries.map((item) => { const values = Object.entries(item.data || {}); const contact = values.find(([key]) => key.toLowerCase().includes('email'))?.[1] || values.find(([key]) => key.toLowerCase().includes('name'))?.[1] || 'Submission'; return <tr key={item.id}><td className="mono">{dateTime(item.created_at)}</td><td><b>{contact}</b><small className="mono block-id">{item.id.slice(0, 8)}</small></td><td>{[item.city, item.country].filter(Boolean).join(', ') || 'Unknown'}</td><td><div className="payload-values">{values.slice(0, 3).map(([key, value]) => <span key={key}><small>{key}</small>{String(value)}</span>)}</div></td><td><span className={`status-pill ${item.is_spam ? 'blocked' : 'valid'}`}><i />{item.is_spam ? 'Blocked' : 'Accepted'}</span></td></tr>; })}</tbody></table></div> : <EmptyState icon={Inbox} title="No submissions yet" description="When this widget receives its first entry, it will show up here." action={<Link className="button secondary" to={`/widgets/${selectedId}`}><Code2 size={15} />View embed code</Link>} />}
