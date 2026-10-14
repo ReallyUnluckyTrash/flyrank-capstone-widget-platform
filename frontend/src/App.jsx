@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowDownToLine, ArrowLeft, ArrowRight, BarChart3, Bolt, Check, ChevronDown, CircleHelp, Code2, Copy, ExternalLink, Eye, FileText, Globe2, Inbox, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Search, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TrendingUp, Users, WalletCards, X, Zap } from 'lucide-react';
 import { api, getWidgetEmbedSnippet, jsonBody, session } from './api.js';
@@ -317,8 +317,12 @@ function WidgetEditorPage() {
   }, [id, navigate]);
   async function copy() {
     if (!widget) return;
-    await navigator.clipboard.writeText(getWidgetEmbedSnippet(widget.id));
-    setCopied(true); window.setTimeout(() => setCopied(false), 1600);
+    try {
+      await navigator.clipboard.writeText(getWidgetEmbedSnippet(widget.id));
+      setCopied(true); window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setError('Clipboard access is unavailable in this browser.');
+    }
   }
   return <>
     <div className="back-row"><Link to="/widgets"><ArrowLeft size={16} />All widgets</Link></div>
@@ -332,26 +336,36 @@ function Detail({ label, value }) { return <div className="detail-row"><span>{la
 
 function SubmissionsPage() {
   const { id: routeId } = useParams();
+  const initialRouteId = useRef(routeId);
   const [widgets, setWidgets] = useState([]);
-  const [selectedId, setSelectedId] = useState(routeId || '');
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const selectedId = routeId || '';
   const selected = widgets.find((widget) => widget.id === selectedId);
   const navigate = useNavigate();
 
-  useEffect(() => { api('/widgets').then((response) => { const items = unwrap(response) || []; setWidgets(items); if (!selectedId && items.length) setSelectedId(items[0].id); }).catch((err) => setError(err.message)); }, []);
-  useEffect(() => { if (routeId && routeId !== selectedId) setSelectedId(routeId); }, [routeId]);
+  useEffect(() => {
+    api('/widgets').then((response) => {
+      const items = unwrap(response) || [];
+      setWidgets(items);
+      if (!initialRouteId.current && items.length) {
+        initialRouteId.current = items[0].id;
+        navigate(`/submissions/${items[0].id}`, { replace: true });
+      }
+    }).catch((err) => setError(err.message));
+  }, [navigate]);
+  useEffect(() => { setPage(1); }, [routeId]);
   useEffect(() => {
     if (!selectedId) { setLoading(false); setResult(null); return; }
     let active = true; setLoading(true); setError('');
     api(`/widgets/${selectedId}/submissions?page=${page}&page_size=25`).then((data) => { if (active) setResult(data); }).catch((err) => { if (active) setError(err.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [selectedId, page, refreshKey]);
+  }, [routeId, page, refreshKey]);
 
-  function changeWidget(value) { setSelectedId(value); setPage(1); navigate(value ? `/submissions/${value}` : '/submissions', { replace: true }); }
+  function changeWidget(value) { setPage(1); navigate(value ? `/submissions/${value}` : '/submissions', { replace: true }); }
   function exportCsv() {
     const rows = result?.data || [];
     const keys = [...new Set(rows.flatMap((item) => Object.keys(item.data || {})))];
