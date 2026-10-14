@@ -17,7 +17,6 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [checking, setChecking] = useState(Boolean(session.token));
   const [mobileNav, setMobileNav] = useState(false);
-  const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,10 +24,10 @@ function App() {
     let active = true;
     api('/auth/protected/profile')
       .then((data) => { if (active) setProfile(data); })
-      .catch(() => { if (active) { session.clear(); setProfile(null); } })
+      .catch(() => { if (active) setProfile(null); })
       .finally(() => { if (active) setChecking(false); });
     return () => { active = false; };
-  }, [location.pathname]);
+  }, []);
 
   function signOut() {
     session.clear();

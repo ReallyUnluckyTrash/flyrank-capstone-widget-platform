@@ -21,9 +21,15 @@ export const session = {
 export async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
-  if (session.token) headers.set('Authorization', `Bearer ${session.token}`);
+  const token = session.token;
+  if (token) headers.set('Authorization', `Bearer ${token}`);
   const response = await fetch(`/api${path}`, { ...options, headers });
-  if (response.status === 401) session.clear();
+  if (response.status === 401 && token && path !== '/auth/login') {
+    session.clear();
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/signup') {
+      window.location.assign('/login');
+    }
+  }
   if (response.status === 204) return null;
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
