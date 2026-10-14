@@ -200,12 +200,15 @@ const defaultFields = [
   { name: 'email', label: 'Work email', type: 'email', required: true },
 ];
 
+function withClientId(field) {
+  return { ...field, id: field.id || crypto.randomUUID() };
+}
+
 function WidgetsPage() {
   const [widgets, setWidgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
   const [editorOpen, setEditorOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [copied, setCopied] = useState('');
@@ -232,7 +235,7 @@ function WidgetsPage() {
     return () => { active = false; };
   }, [refreshKey]);
 
-  const filtered = useMemo(() => widgets.filter((widget) => `${widget.title} ${widget.id}`.toLowerCase().includes(query.toLowerCase()) && (status === 'all' || status === 'active')), [widgets, query, status]);
+  const filtered = useMemo(() => widgets.filter((widget) => `${widget.title} ${widget.id}`.toLowerCase().includes(query.toLowerCase())), [widgets, query]);
 
   async function removeWidget(widget) {
     if (!window.confirm(`Delete “${widget.title}”? This also deletes its submissions.`)) return;
@@ -249,11 +252,11 @@ function WidgetsPage() {
   return <>
     <PageHeading eyebrow="CONFIGURE YOUR CAPTURE" title="Widgets" description="Create, refine, and publish the forms collecting your submissions." action={<button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={16} />Create widget</button>} />
     <Notice message={error} />
-    <section className="panel widgets-panel"><div className="list-toolbar"><div className="list-summary"><span className="eyebrow">YOUR CONFIGURATIONS</span><h2>Widget library <span>{widgets.length}</span></h2></div><div className="list-filters"><label className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search widgets" /></label><label className="select-wrap"><SlidersHorizontal size={14} /><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All widgets</option><option value="active">Configured</option></select><ChevronDown size={14} /></label><button className="icon-button filter-refresh" title="Refresh widgets" onClick={() => { setLoading(true); setRefreshKey((value) => value + 1); }}><RefreshCw size={16} /></button></div></div>
+    <section className="panel widgets-panel"><div className="list-toolbar"><div className="list-summary"><span className="eyebrow">YOUR CONFIGURATIONS</span><h2>Widget library <span>{widgets.length}</span></h2></div><div className="list-filters"><label className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search widgets" /></label><button className="icon-button filter-refresh" title="Refresh widgets" aria-label="Refresh widgets" onClick={() => { setLoading(true); setRefreshKey((value) => value + 1); }}><RefreshCw size={16} /></button></div></div>
       {loading ? <div className="loading-row"><span className="loader" />Loading widget configurations</div> : filtered.length ? <div className="table-scroll"><table className="data-table widgets-table"><thead><tr><th>WIDGET</th><th>FIELDS</th><th>SUBMISSIONS</th><th>CREATED</th><th>STATUS</th><th className="align-right">ACTIONS</th></tr></thead><tbody>{filtered.map((widget) => <WidgetRow key={widget.id} widget={widget} onEdit={() => navigate(`/widgets/${widget.id}`)} onDelete={() => removeWidget(widget)} onCopy={() => copySnippet(widget)} copied={copied === widget.id} />)}</tbody></table></div> : <EmptyState icon={WalletCards} title={query ? 'No matching widgets' : 'No widgets configured'} description={query ? 'Try a different search term.' : 'Create your first capture form and publish it on your site.'} action={!query && <button className="button primary" onClick={() => setEditorOpen(true)}><Plus size={15} />Create widget</button>} />}
       <div className="table-foot"><span>Showing {filtered.length} of {widgets.length} widgets</span><span>Widget configurations are private to your workspace</span></div>
     </section>
-    {editorOpen && <WidgetFormModal onClose={() => setEditorOpen(false)} onSaved={(widget) => { setWidgets((items) => [widget, ...items]); setEditorOpen(false); navigate(`/widgets/${widget.id}`); }} />}
+    {editorOpen && <WidgetFormModal onClose={() => setEditorOpen(false)} onSaved={(saved) => { const widget = { ...saved, form_fields: Array.isArray(saved.form_fields) ? saved.form_fields : [], created_at: saved.created_at || new Date().toISOString(), submission_count: Number(saved.submission_count || 0) }; setWidgets((items) => [widget, ...items.filter((item) => item.id !== widget.id)]); setEditorOpen(false); navigate(`/widgets/${widget.id}`); }} />}
   </>;
 }
 
@@ -266,43 +269,45 @@ function WidgetFormModal({ widget, onClose, onSaved }) {
   const [title, setTitle] = useState(widget?.title || '');
   const [description, setDescription] = useState(widget?.description || '');
   const [buttonText, setButtonText] = useState(widget?.button_text || 'Sign up');
-  const [fieldsJson, setFieldsJson] = useState(JSON.stringify((widget?.form_fields || defaultFields).filter((field) => !field.honeypot), null, 2));
+  const [fields, setFields] = useState(() => (widget?.form_fields || defaultFields).filter((field) => !field.honeypot).map(withClientId));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const duplicateFieldIds = useMemo(() => {
+    const counts = new Map();
+    fields.forEach((field) => {
+      const key = field.name.trim().toLowerCase();
+      if (key) counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return new Set(fields.filter((field) => field.name.trim() && counts.get(field.name.trim().toLowerCase()) > 1).map((field) => field.id));
+  }, [fields]);
 
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError('');
     try {
-      const formFields = JSON.parse(fieldsJson);
-      if (!Array.isArray(formFields) || formFields.length === 0 || formFields.some((field) => !field.name?.trim() || !field.label?.trim() || !field.type)) throw new Error('Add at least one field with a label, key, and type.');
-      if (new Set(formFields.map((field) => field.name)).size !== formFields.length) throw new Error('Each field key must be unique.');
+      if (!fields.length || fields.some((field) => !field.name.trim() || !field.label.trim() || !field.type)) throw new Error('Add at least one field with a label, key, and type.');
+      if (duplicateFieldIds.size) throw new Error('Each field key must be unique.');
+      const formFields = fields.map(({ id, ...field }) => field);
       const body = { title, description, button_text: buttonText, form_fields: formFields };
       const response = widget ? await api(`/widgets/${widget.id}`, { method: 'PATCH', body: jsonBody(body) }) : await api('/widgets', { method: 'POST', body: jsonBody(body) });
       onSaved(unwrap(response));
-    } catch (err) { setError(err instanceof SyntaxError ? 'The fields JSON is not valid.' : err.message); }
+    } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
 
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card builder-modal"><div className="modal-heading"><div><span className="eyebrow">{widget ? 'EDIT CONFIGURATION' : 'FAST PROVISION'}</span><h2>{widget ? 'Update widget' : 'Create a widget'}</h2><p>Set up the public capture form and its fields.</p></div><button className="icon-button" onClick={onClose} title="Close"><X size={18} /></button></div><Notice message={error} /><form onSubmit={submit} className="widget-form"><div className="builder-modal-grid"><div className="builder-fields"><label>Widget title<input required maxLength="120" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Product updates" /></label><label>Description <span className="optional">OPTIONAL</span><textarea rows="2" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Tell visitors what happens when they sign up." /></label><label>Submit button text<input required maxLength="60" value={buttonText} onChange={(event) => setButtonText(event.target.value)} /></label><FieldConfigurator value={fieldsJson} onChange={setFieldsJson} /></div><div className="field-preview"><div className="preview-toolbar"><span><i /> LIVE PREVIEW</span><span>WIDGET / FORM</span></div><div className="preview-card"><span className="preview-brand"><Zap size={12} fill="currentColor" /> FLYRANK WIDGET</span><h3>{title || 'Your widget title'}</h3><p>{description || 'Your description will appear here.'}</p>{parseFormFields(fieldsJson).filter((field) => !field.honeypot).map((field) => <div className="preview-input" key={field.name}><span>{field.label || field.name}{field.required && <b> *</b>}</span><i /></div>)}<button type="button" className="preview-submit">{buttonText || 'Sign up'} <ArrowRight size={13} /></button><small>Protected by spam filtering</small></div></div></div><div className="form-hint"><ShieldCheck size={15} /> A honeypot field is added automatically to reduce spam.</div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy ? 'Saving…' : widget ? 'Save changes' : 'Create widget'}<ArrowRight size={15} /></button></div></form></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card builder-modal"><div className="modal-heading"><div><span className="eyebrow">{widget ? 'EDIT CONFIGURATION' : 'FAST PROVISION'}</span><h2>{widget ? 'Update widget' : 'Create a widget'}</h2><p>Set up the public capture form and its fields.</p></div><button className="icon-button" onClick={onClose} title="Close"><X size={18} /></button></div><Notice message={error} /><form onSubmit={submit} className="widget-form"><div className="builder-modal-grid"><div className="builder-fields"><label>Widget title<input required maxLength="120" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Product updates" /></label><label>Description <span className="optional">OPTIONAL</span><textarea rows="2" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Tell visitors what happens when they sign up." /></label><label>Submit button text<input required maxLength="60" value={buttonText} onChange={(event) => setButtonText(event.target.value)} /></label><FieldConfigurator fields={fields} setFields={setFields} duplicateFieldIds={duplicateFieldIds} /></div><div className="field-preview"><div className="preview-toolbar"><span><i /> LIVE PREVIEW</span><span>WIDGET / FORM</span></div><div className="preview-card"><span className="preview-brand"><Zap size={12} fill="currentColor" /> FLYRANK WIDGET</span><h3>{title || 'Your widget title'}</h3><p>{description || 'Your description will appear here.'}</p>{fields.filter((field) => !field.honeypot).map((field) => <div className="preview-input" key={field.id}><span>{field.label || field.name}{field.required && <b> *</b>}</span><i /></div>)}<button type="button" className="preview-submit">{buttonText || 'Sign up'} <ArrowRight size={13} /></button><small>Protected by spam filtering</small></div></div></div><div className="form-hint"><ShieldCheck size={15} /> A honeypot field is added automatically to reduce spam.</div><div className="modal-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>{busy ? 'Saving…' : widget ? 'Save changes' : 'Create widget'}<ArrowRight size={15} /></button></div></form></section></div>;
 }
 
-function parseFormFields(value) {
-  try { return JSON.parse(value); } catch { return []; }
-}
-
-function FieldConfigurator({ value, onChange }) {
-  const fields = parseFormFields(value);
+function FieldConfigurator({ fields, setFields, duplicateFieldIds }) {
   function updateField(index, patch) {
-    onChange(JSON.stringify(fields.map((field, current) => current === index ? { ...field, ...patch } : field), null, 2));
+    setFields((currentFields) => currentFields.map((field, current) => current === index ? { ...field, ...patch } : field));
   }
   function addField() {
-    const name = `field_${fields.length + 1}`;
-    onChange(JSON.stringify([...fields, { name, label: 'New field', type: 'text', required: false }], null, 2));
+    setFields((currentFields) => [...currentFields, withClientId({ name: `field_${currentFields.length + 1}`, label: 'New field', type: 'text', required: false })]);
   }
   function removeField(index) {
-    onChange(JSON.stringify(fields.filter((_, current) => current !== index), null, 2));
+    setFields((currentFields) => currentFields.filter((_, current) => current !== index));
   }
-  return <section className="field-configurator"><div className="field-config-heading"><span>CAPTURE FIELDS <b>{fields.length}</b></span><button type="button" onClick={addField}><Plus size={14} />Add field</button></div>{fields.length ? fields.map((field, index) => <div className="builder-field-row" key={index}><span className="field-type-icon"><FileText size={14} /></span><div className="builder-field-grid"><input aria-label="Field label" required value={field.label || ''} onChange={(event) => updateField(index, { label: event.target.value })} placeholder="Field label" /><input aria-label="Field key" required value={field.name || ''} onChange={(event) => updateField(index, { name: event.target.value })} placeholder="field_key" /><select aria-label="Field type" value={field.type || 'text'} onChange={(event) => updateField(index, { type: event.target.value })}><option value="text">Text</option><option value="email">Email</option><option value="tel">Phone</option><option value="url">Website URL</option><option value="number">Number</option></select></div><label className="required-toggle"><input type="checkbox" checked={Boolean(field.required)} onChange={(event) => updateField(index, { required: event.target.checked })} />Required</label><button type="button" className="row-action danger-action" title="Remove field" onClick={() => removeField(index)}><Trash2 size={15} /></button></div>) : <p className="fields-empty">Add at least one field to collect a submission.</p>}</section>;
+  return <section className="field-configurator"><div className="field-config-heading"><span>CAPTURE FIELDS <b>{fields.length}</b></span><button type="button" onClick={addField}><Plus size={14} />Add field</button></div>{fields.length ? fields.map((field, index) => <div className="builder-field-row" key={field.id}><span className="field-type-icon"><FileText size={14} /></span><div className="builder-field-grid"><input aria-label="Field label" required value={field.label || ''} onChange={(event) => updateField(index, { label: event.target.value })} placeholder="Field label" /><div><input aria-label="Field key" required aria-invalid={duplicateFieldIds.has(field.id)} value={field.name || ''} onChange={(event) => updateField(index, { name: event.target.value })} placeholder="field_key" />{duplicateFieldIds.has(field.id) && <small className="field-error">Field keys must be unique.</small>}</div><select aria-label="Field type" value={field.type || 'text'} onChange={(event) => updateField(index, { type: event.target.value })}><option value="text">Text</option><option value="email">Email</option><option value="tel">Phone</option><option value="url">Website URL</option><option value="number">Number</option></select></div><label className="required-toggle"><input type="checkbox" checked={Boolean(field.required)} onChange={(event) => updateField(index, { required: event.target.checked })} />Required</label><button type="button" className="row-action danger-action" title="Remove field" aria-label={`Remove ${field.label || field.name || 'field'}`} onClick={() => removeField(index)}><Trash2 size={15} /></button></div>) : <p className="fields-empty">Add at least one field to collect a submission.</p>}</section>;
 }
 
 function WidgetEditorPage() {
@@ -310,6 +315,7 @@ function WidgetEditorPage() {
   const [widget, setWidget] = useState(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   const navigate = useNavigate();
   useEffect(() => {
     if (id === 'new') { navigate('/widgets', { replace: true, state: { create: true } }); return; }
@@ -328,8 +334,8 @@ function WidgetEditorPage() {
     <div className="back-row"><Link to="/widgets"><ArrowLeft size={16} />All widgets</Link></div>
     <PageHeading eyebrow="WIDGET CONFIGURATION" title={widget?.title || 'Widget details'} description="Edit the form settings and copy the embed code for your site." action={widget && <button className="button secondary" onClick={copy}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? 'Copied' : 'Copy embed'}</button>} />
     <Notice message={error} />
-    {widget && <div className="editor-grid"><section className="panel editor-panel"><div className="panel-heading"><div><span className="eyebrow">FORM SCHEMA</span><h2>Configuration</h2></div><span className="id-tag">{widget.id.slice(0, 8)}</span></div><div className="detail-list"><Detail label="Display title" value={widget.title} /><Detail label="Description" value={widget.description || 'No description'} /><Detail label="Button text" value={widget.button_text} /><Detail label="Created" value={dateTime(widget.created_at)} /></div><h3 className="subsection-title">Capture fields <span>{(widget.form_fields || []).filter((field) => !field.honeypot).length}</span></h3><div className="field-list">{(widget.form_fields || []).filter((field) => !field.honeypot).map((field) => <div className="field-row" key={field.name}><span className="field-type-icon"><FileText size={15} /></span><span><b>{field.label}</b><small className="mono">{field.name} · {field.type}</small></span><span className={`field-required ${field.required ? 'required' : ''}`}>{field.required ? 'Required' : 'Optional'}</span></div>)}</div><button className="button primary editor-edit" onClick={() => setWidget({ ...widget, _editing: true })}><SlidersHorizontal size={15} />Edit configuration</button></section><section className="panel snippet-panel"><div className="panel-heading"><div><span className="eyebrow">PUBLISH</span><h2>Embed on your site</h2></div><Code2 size={18} className="muted-icon" /></div><p>Add this script to your page. It loads the published form from your widget configuration.</p><pre className="snippet-code"><code>{getWidgetEmbedSnippet(widget.id)}</code></pre><button className="button secondary" onClick={copy}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? 'Copied' : 'Copy snippet'}</button><div className="snippet-note"><ShieldCheck size={16} /><span><b>Public configuration</b><small>The form can be loaded without an account. Only this widget's public fields are exposed.</small></span></div></section></div>}
-    {widget?._editing && <WidgetFormModal widget={widget} onClose={() => setWidget({ ...widget, _editing: false })} onSaved={(saved) => setWidget(saved)} />}
+    {widget && <div className="editor-grid"><section className="panel editor-panel"><div className="panel-heading"><div><span className="eyebrow">FORM SCHEMA</span><h2>Configuration</h2></div><span className="id-tag">{widget.id.slice(0, 8)}</span></div><div className="detail-list"><Detail label="Display title" value={widget.title} /><Detail label="Description" value={widget.description || 'No description'} /><Detail label="Button text" value={widget.button_text} /><Detail label="Created" value={dateTime(widget.created_at)} /></div><h3 className="subsection-title">Capture fields <span>{(widget.form_fields || []).filter((field) => !field.honeypot).length}</span></h3><div className="field-list">{(widget.form_fields || []).filter((field) => !field.honeypot).map((field) => <div className="field-row" key={field.name}><span className="field-type-icon"><FileText size={15} /></span><span><b>{field.label}</b><small className="mono">{field.name} · {field.type}</small></span><span className={`field-required ${field.required ? 'required' : ''}`}>{field.required ? 'Required' : 'Optional'}</span></div>)}</div><button className="button primary editor-edit" onClick={() => setEditing(true)}><SlidersHorizontal size={15} />Edit configuration</button></section><section className="panel snippet-panel"><div className="panel-heading"><div><span className="eyebrow">PUBLISH</span><h2>Embed on your site</h2></div><Code2 size={18} className="muted-icon" /></div><p>Add this script to your page. It loads the published form from your widget configuration.</p><pre className="snippet-code"><code>{getWidgetEmbedSnippet(widget.id)}</code></pre><button className="button secondary" onClick={copy}>{copied ? <Check size={15} /> : <Copy size={15} />}{copied ? 'Copied' : 'Copy snippet'}</button><div className="snippet-note"><ShieldCheck size={16} /><span><b>Public configuration</b><small>The form can be loaded without an account. Only this widget's public fields are exposed.</small></span></div></section></div>}
+    {editing && widget && <WidgetFormModal widget={widget} onClose={() => setEditing(false)} onSaved={(saved) => { setWidget(saved); setEditing(false); }} />}
   </>;
 }
 function Detail({ label, value }) { return <div className="detail-row"><span>{label}</span><b>{value}</b></div>; }
