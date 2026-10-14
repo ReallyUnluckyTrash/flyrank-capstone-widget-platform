@@ -159,7 +159,7 @@ function AnalyticsPage() {
   const spam = Number(data.overview?.spam_count || 0);
   const widgetsCount = Number(data.overview?.total_widgets || 0);
   const valid = Math.max(total - spam, 0);
-  const peak = Math.max(...data.series.map((entry) => Number(entry.submissions)), 1);
+  const peak = data.series.reduce((max, entry) => Math.max(max, Number(entry.submissions)), 1);
   const countries = [...data.countries].sort((a, b) => Number(b.submissions) - Number(a.submissions)).slice(0, 5);
 
   return <>
@@ -181,7 +181,7 @@ function AnalyticsPage() {
       </section>
     </div>
     <section className="panel data-panel"><div className="panel-heading panel-heading-row"><div><span className="eyebrow">RECENT ACTIVITY</span><h2>Latest submissions</h2></div><Link className="text-link" to="/submissions">Browse widgets <ArrowRight size={15} /></Link></div>
-      {data.feed.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>RECEIVED</th><th>WIDGET</th><th>SUBMISSION</th><th>LOCATION</th><th>STATUS</th><th /></tr></thead><tbody>{data.feed.map((item) => <tr key={item.id}><td className="mono">{dateTime(item.created_at)}</td><td className="strong">{item.widget_title}</td><td>{Object.values(item.data || {}).find((value) => value.includes('@')) || Object.values(item.data || {})[0] || '—'}</td><td>{[item.city, item.country].filter(Boolean).join(', ') || 'Unknown'}</td><td><span className={`status-pill ${item.is_spam ? 'blocked' : 'valid'}`}><i />{item.is_spam ? 'Blocked' : 'Accepted'}</span></td><td><Link className="row-action" to={`/submissions/${item.widget_id}`} title="View widget submissions"><ArrowRight size={15} /></Link></td></tr>)}</tbody></table></div> : <EmptyState icon={Inbox} title={loading ? 'Loading submissions' : 'Your stream is quiet'} description={loading ? 'Fetching the latest activity.' : 'New submissions will appear here as soon as they arrive.'} />}
+      {data.feed.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>RECEIVED</th><th>WIDGET</th><th>SUBMISSION</th><th>LOCATION</th><th>STATUS</th><th /></tr></thead><tbody>{data.feed.map((item) => <tr key={item.id}><td className="mono">{dateTime(item.created_at)}</td><td className="strong">{item.widget_title}</td><td>{Object.values(item.data || {}).find((value) => String(value).includes('@')) || Object.values(item.data || {})[0] || '—'}</td><td>{[item.city, item.country].filter(Boolean).join(', ') || 'Unknown'}</td><td><span className={`status-pill ${item.is_spam ? 'blocked' : 'valid'}`}><i />{item.is_spam ? 'Blocked' : 'Accepted'}</span></td><td><Link className="row-action" to={`/submissions/${item.widget_id}`} title="View widget submissions"><ArrowRight size={15} /></Link></td></tr>)}</tbody></table></div> : <EmptyState icon={Inbox} title={loading ? 'Loading submissions' : 'Your stream is quiet'} description={loading ? 'Fetching the latest activity.' : 'New submissions will appear here as soon as they arrive.'} />}
       <div className="table-foot"><span><i className="status-dot" /> Refreshes every 30 seconds</span><span>Showing up to 7 latest entries</span></div>
     </section>
   </>;
@@ -355,15 +355,24 @@ function SubmissionsPage() {
   function exportCsv() {
     const rows = result?.data || [];
     const keys = [...new Set(rows.flatMap((item) => Object.keys(item.data || {})))];
-    const escape = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const escape = (value) => {
+      const text = String(value ?? '');
+      const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+      return `"${safeText.replaceAll('"', '""')}"`;
+    };
     const csv = [['created_at', 'country', 'city', 'spam', ...keys].map(escape).join(','), ...rows.map((item) => [item.created_at, item.country, item.city, item.is_spam, ...keys.map((key) => item.data?.[key])].map(escape).join(','))].join('\n');
-    const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); link.download = `${selected?.title || 'submissions'}.csv`; link.click(); URL.revokeObjectURL(link.href);
+    const filename = (selected?.title || 'submissions')
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-')
+      .trim()
+      .replace(/[. ]+$/g, '') || 'submissions';
+    const safeFilename = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(filename) ? `_${filename}` : filename;
+    const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); link.download = `${safeFilename}.csv`; link.click(); URL.revokeObjectURL(link.href);
   }
 
   const entries = result?.data || [];
   const pagination = result?.pagination;
   return <>
-    <PageHeading eyebrow="INCOMING DATA" title="Submissions" description="Inspect the entries captured by each widget." action={<div className="heading-actions">{selected && <button className="button secondary" onClick={exportCsv} disabled={!entries.length}><ArrowDownToLine size={15} />Export CSV</button>}<button className="button secondary icon-only" onClick={() => setRefreshKey((value) => value + 1)} title="Refresh submissions"><RefreshCw size={15} /></button></div>} />
+    <PageHeading eyebrow="INCOMING DATA" title="Submissions" description="Inspect the entries captured by each widget." action={<div className="heading-actions">{selected && <button className="button secondary" onClick={exportCsv} disabled={!entries.length}><ArrowDownToLine size={15} />Export this page</button>}<button className="button secondary icon-only" onClick={() => setRefreshKey((value) => value + 1)} title="Refresh submissions"><RefreshCw size={15} /></button></div>} />
     <Notice message={error} />
     <section className="panel submissions-panel"><div className="submission-toolbar"><div><span className="eyebrow">FILTER BY WIDGET</span><h2>{selected?.title || 'All widgets'}</h2></div><label className="select-wrap widget-select"><span className="sr-only">Choose widget</span><select value={selectedId} onChange={(event) => changeWidget(event.target.value)}><option value="">Choose a widget</option>{widgets.map((widget) => <option value={widget.id} key={widget.id}>{widget.title}</option>)}</select><ChevronDown size={15} /></label></div>
       {loading ? <div className="loading-row"><span className="loader" />Loading submissions</div> : !selectedId ? <EmptyState icon={Inbox} title="Choose a widget" description="Select a widget above to inspect its submissions." action={<Link className="button primary" to="/widgets"><WalletCards size={15} />Manage widgets</Link>} /> : entries.length ? <div className="table-scroll"><table className="data-table submissions-table"><thead><tr><th>RECEIVED</th><th>CONTACT</th><th>LOCATION</th><th>FORM DATA</th><th>STATUS</th></tr></thead><tbody>{entries.map((item) => { const values = Object.entries(item.data || {}); const contact = values.find(([key]) => key.toLowerCase().includes('email'))?.[1] || values.find(([key]) => key.toLowerCase().includes('name'))?.[1] || 'Submission'; return <tr key={item.id}><td className="mono">{dateTime(item.created_at)}</td><td><b>{contact}</b><small className="mono block-id">{item.id.slice(0, 8)}</small></td><td>{[item.city, item.country].filter(Boolean).join(', ') || 'Unknown'}</td><td><div className="payload-values">{values.slice(0, 3).map(([key, value]) => <span key={key}><small>{key}</small>{String(value)}</span>)}</div></td><td><span className={`status-pill ${item.is_spam ? 'blocked' : 'valid'}`}><i />{item.is_spam ? 'Blocked' : 'Accepted'}</span></td></tr>; })}</tbody></table></div> : <EmptyState icon={Inbox} title="No submissions yet" description="When this widget receives its first entry, it will show up here." action={<Link className="button secondary" to={`/widgets/${selectedId}`}><Code2 size={15} />View embed code</Link>} />}
