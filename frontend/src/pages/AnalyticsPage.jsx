@@ -24,7 +24,7 @@ export default function AnalyticsPage() {
         api(`/dashboard/stats/timeseries?from=${encodeURIComponent(from)}`),
         api('/dashboard/stats/widget'),
         api('/dashboard/stats/country'),
-        api('/dashboard/recent-submissions'),
+        api('/dashboard/stats/recent-submissions'),
       ]);
       return {
         overview: unwrap(overview),

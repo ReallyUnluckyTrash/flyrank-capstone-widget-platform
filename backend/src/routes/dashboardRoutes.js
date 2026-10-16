@@ -9,6 +9,6 @@ router.get('/stats/overview', requireAuth, dashboardController.getOverview);
 router.get('/stats/timeseries', requireAuth, dashboardController.getTimeseries);
 router.get('/stats/widget', requireAuth, dashboardController.getWidget);
 router.get('/stats/country', requireAuth, dashboardController.getCountry);
-router.get('/recent-submissions', requireAuth, dashboardController.getRecentSubmissions);
+router.get('/stats/recent-submissions', requireAuth, dashboardController.getRecentSubmissions);
 
 export default router;
