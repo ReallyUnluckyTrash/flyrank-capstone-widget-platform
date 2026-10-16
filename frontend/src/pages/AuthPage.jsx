@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { api, jsonBody, session } from '../api.js';
 import Notice from '../components/Notice.jsx';
+import styles from './AuthPage.module.css';
 
 export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
   const [mode, setMode] = useState(initialMode);
@@ -37,7 +38,7 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
   }
 
   return (
-    <main className="auth-layout">
+    <main className={styles.root}>
       <section className="auth-panel">
         <div className="auth-form-wrap">
           <span className="auth-kicker">FLYRANK WIDGETS</span>

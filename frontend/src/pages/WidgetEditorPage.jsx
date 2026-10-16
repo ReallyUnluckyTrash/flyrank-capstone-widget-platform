@@ -10,6 +10,7 @@ import WidgetFormModal from '../components/WidgetFormModal.jsx';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard.js';
 import { dateTime } from '../utils/format.js';
 import { unwrap } from '../utils/data.js';
+import styles from './WidgetEditorPage.module.css';
 
 export default function WidgetEditorPage() {
   const { id } = useParams();
@@ -34,7 +35,7 @@ export default function WidgetEditorPage() {
   }, [id, navigate]);
 
   return (
-    <>
+    <div className={styles.root}>
       <div className="back-row"><Link to="/widgets"><ArrowLeft size={16} />All widgets</Link></div>
       <PageHeading
         eyebrow="WIDGET CONFIGURATION"
@@ -112,6 +113,6 @@ export default function WidgetEditorPage() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import PageHeading from '../components/PageHeading.jsx';
 import SubmissionFeedRow from '../components/SubmissionFeedRow.jsx';
 import { fmt, shortDate } from '../utils/format.js';
 import { unwrap, unwrapList } from '../utils/data.js';
+import styles from './AnalyticsPage.module.css';
 
 export default function AnalyticsPage() {
   const [windowDays, setWindowDays] = useState(30);
@@ -47,7 +48,7 @@ export default function AnalyticsPage() {
     .slice(0, 5);
 
   return (
-    <>
+    <div className={styles.root}>
       <PageHeading
         eyebrow="YOUR DATA, IN MOTION"
         title="Analytics overview"
@@ -174,6 +175,6 @@ export default function AnalyticsPage() {
           <span>Showing up to 7 latest entries</span>
         </div>
       </section>
-    </>
+    </div>
   );
 }

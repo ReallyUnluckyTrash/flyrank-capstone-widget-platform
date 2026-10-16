@@ -8,6 +8,7 @@ import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import SubmissionsPage from './pages/SubmissionsPage.jsx';
 import WidgetEditorPage from './pages/WidgetEditorPage.jsx';
 import WidgetsPage from './pages/WidgetsPage.jsx';
+import styles from './App.module.css';
 
 const navItems = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
@@ -126,7 +127,7 @@ function Workspace({ profile, onSignOut, mobileNav, setMobileNav }) {
   }
 
   return (
-    <div className="app-shell">
+    <div className={styles.shell}>
       <aside ref={sidebarRef} id="workspace-nav" className={`sidebar ${mobileNav ? 'open' : ''}`}>
         <Link to="/analytics" className="sidebar-brand">
           <span className="brand-mark"><Zap size={17} fill="currentColor" /></span>

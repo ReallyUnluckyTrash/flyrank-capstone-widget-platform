@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import styles from './ModalDialog.module.css';
 
 export default function ModalDialog({ children, onClose, ariaLabel, className = '' }) {
   const dialogRef = useRef(null);
@@ -40,14 +41,14 @@ export default function ModalDialog({ children, onClose, ariaLabel, className = 
 
   return (
     <div
-      className="modal-backdrop"
+      className={styles.backdrop}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
         ref={dialogRef}
-        className={`modal-card ${className}`}
+        className={`${styles.card} ${className}`}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}

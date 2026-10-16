@@ -12,6 +12,7 @@ import WidgetFormModal from '../components/WidgetFormModal.jsx';
 import WidgetRow from '../components/WidgetRow.jsx';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard.js';
 import { fetchWidgets, normalizeWidget } from '../utils/data.js';
+import styles from './WidgetsPage.module.css';
 
 export default function WidgetsPage() {
   const [query, setQuery] = useState('');
@@ -59,7 +60,7 @@ export default function WidgetsPage() {
   }
 
   return (
-    <>
+    <div className={styles.root}>
       <PageHeading
         eyebrow="CONFIGURE YOUR CAPTURE"
         title="Widgets"
@@ -137,6 +138,6 @@ export default function WidgetsPage() {
           onConfirm={() => deleteMutation.mutate(widgetToDelete)}
         />
       )}
-    </>
+    </div>
   );
 }

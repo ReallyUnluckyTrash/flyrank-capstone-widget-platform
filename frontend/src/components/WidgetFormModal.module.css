@@ -1,0 +1,306 @@
+.root { display: contents; }
+
+.root :global(.widget-form) {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.root :global(.widget-form label) {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #39473f;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.root :global(.widget-form input),
+.root :global(.widget-form textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: var(--space-2-5) 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--text-base);
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.root :global(.widget-form input::placeholder),
+.root :global(.widget-form textarea::placeholder) {
+  color: #a5aea8;
+}
+.root :global(.widget-form input:focus),
+.root :global(.widget-form textarea:focus) {
+  border-color: var(--green-focus);
+  box-shadow: 0 0 0 3px rgba(8, 125, 86, 0.09);
+}
+.builderModal {
+  width: min(100%, 900px);
+}
+.root :global(.widget-form) {
+  gap: 13px;
+}
+.root :global(.widget-form textarea) {
+  resize: vertical;
+  line-height: 1.5;
+}
+.root :global(.form-hint) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #75907c;
+  font-size: var(--text-xs);
+}
+.root :global(.form-hint svg) {
+  color: #388057;
+}
+.root :global(.modal-actions) {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.builderModal :global(.widget-form) {
+  gap: 12px;
+}
+.root :global(.builder-modal-grid) {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(250px, 0.8fr);
+  align-items: start;
+  gap: 18px;
+}
+.root :global(.builder-fields) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.root :global(.field-configurator) {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.root :global(.field-config-heading) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 2px;
+  color: #68776d;
+  font: 700 var(--text-xs) var(--mono);
+  letter-spacing: 0.06em;
+}
+.root :global(.field-config-heading > span) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.root :global(.field-config-heading b) {
+  padding: 3px 6px;
+  border-radius: 10px;
+  background: var(--green-pale);
+  color: var(--green-dark);
+  font-weight: 500;
+}
+.root :global(.field-config-heading button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+.root :global(.builder-field-row) {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) auto 28px;
+  align-items: center;
+  gap: 7px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-soft);
+}
+.root :global(.builder-field-grid) {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) minmax(65px, 0.8fr) 100px;
+  gap: 6px;
+}
+.root :global(.builder-field-grid input),
+.root :global(.builder-field-grid select) {
+  min-width: 0;
+  width: 100%;
+  height: 31px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--paper);
+  color: #4d5a51;
+  font-size: var(--text-sm);
+}
+.root :global(.builder-field-grid input[aria-invalid="true"]) {
+  border-color: var(--danger);
+}
+.root :global(.field-error) {
+  display: block;
+  margin-top: 4px;
+  color: var(--danger-text);
+  font-size: var(--text-xs);
+}
+.root :global(.builder-field-grid select) {
+  padding-right: 4px;
+}
+.root :global(.widget-form .required-toggle) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.root :global(.required-toggle input) {
+  width: 13px;
+  min-height: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--green);
+}
+.root :global(.builder-field-row .row-action) {
+  width: 26px;
+  height: 26px;
+}
+.root :global(.fields-empty) {
+  margin: 0;
+  padding: 15px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: var(--text-md);
+  text-align: center;
+}
+.root :global(.field-preview) {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-hover);
+}
+.root :global(.preview-toolbar) {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-2-5);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font: var(--text-xs) var(--mono);
+  letter-spacing: 0.04em;
+}
+.root :global(.preview-toolbar > span:first-child) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--green-dark);
+}
+.root :global(.preview-toolbar i) {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green-mid);
+}
+.root :global(.preview-card) {
+  margin: 13px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--paper);
+  box-shadow: 0 5px 14px rgba(39, 67, 48, 0.05);
+}
+.root :global(.preview-brand) {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--green);
+  font: 700 var(--text-xs) var(--mono);
+  letter-spacing: 0.06em;
+}
+.root :global(.preview-card h3) {
+  margin: 12px 0 5px;
+  color: #283a2e;
+  font: 700 15px/1.35 var(--display);
+  overflow-wrap: anywhere;
+}
+.root :global(.preview-card > p) {
+  margin: 0 0 13px;
+  color: #829087;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+.root :global(.preview-input) {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: var(--space-2) 0;
+  color: #58665c;
+  font-size: var(--text-sm);
+}
+.root :global(.preview-input b) {
+  color: var(--danger-warm);
+}
+.root :global(.preview-input i) {
+  height: 27px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface-soft);
+}
+.root :global(.preview-submit) {
+  width: 100%;
+  min-height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 0 var(--space-2-25);
+  border: 0;
+  border-radius: 3px;
+  background: var(--green);
+  color: var(--paper);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.root :global(.preview-card > small) {
+  display: none;
+  margin-top: var(--space-2);
+  color: #9aa59d;
+  font: var(--text-xs) var(--mono);
+  text-align: center;
+}
+@media (max-width: 620px) {
+  .root :global(.builder-modal-grid) {
+    grid-template-columns: 1fr;
+  }
+  .root :global(.builder-field-row) {
+    grid-template-columns: 23px minmax(0, 1fr) 25px;
+  }
+  .root :global(.builder-field-grid) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .root :global(.builder-field-grid select) {
+    grid-column: 1 / -1;
+  }
+  .root :global(.required-toggle) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .root :global(.builder-field-row .row-action) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}

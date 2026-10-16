@@ -1,0 +1,306 @@
+.shell {
+  min-height: 100vh;
+}
+.shell :global(.sidebar) {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 238px;
+  padding: 0 15px;
+  border-right: 1px solid var(--line);
+  background: var(--paper);
+}
+.shell :global(.sidebar-brand) {
+  height: 70px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-25);
+  border-bottom: 1px solid var(--line-soft);
+  color: #163e2d;
+  font: 700 var(--text-sm) var(--display);
+  font-size: var(--text-base);
+  letter-spacing: 0.1em;
+}
+.shell :global(.sidebar-brand b) {
+  font-weight: 500;
+  color: #718178;
+}
+.shell :global(.sidebar-brand .brand-mark) {
+  width: 31px;
+  height: 31px;
+  flex-basis: 31px;
+  border-radius: 8px;
+}
+.shell :global(.workspace-select) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  margin: 18px 0 28px;
+  padding: var(--space-2-5);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-soft);
+}
+.shell :global(.workspace-select > span:nth-child(2)) {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.shell :global(.workspace-select small) {
+  color: var(--muted);
+  font: var(--text-xs) var(--mono);
+  letter-spacing: 0.05em;
+}
+.shell :global(.workspace-select b) {
+  overflow: hidden;
+  color: #33443a;
+  font-size: var(--text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell :global(.workspace-avatar),
+.shell :global(.user-avatar) {
+  display: inline-flex;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #dfeee3;
+  color: #347552;
+  font: 700 var(--text-xs) var(--display);
+}
+.shell :global(.nav-heading) {
+  padding: 0 var(--space-2-25) var(--space-2-25);
+  color: #9ba69e;
+  font: var(--text-xs) var(--mono);
+  letter-spacing: 0.08em;
+}
+.shell :global(.side-nav) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.shell :global(.nav-item) {
+  position: relative;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 var(--space-2-5);
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #6b7970;
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-align: left;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.shell :global(.nav-item:hover) {
+  color: var(--green-ink);
+  background: var(--surface-hover);
+}
+.shell :global(.nav-item.active) {
+  color: var(--green-dark);
+  background: var(--green-pale);
+  font-weight: 700;
+}
+.shell :global(.nav-item.active::before) {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 25px;
+  border-radius: 0 3px 3px 0;
+  background: var(--green);
+}
+.shell :global(.nav-item svg) {
+  flex: 0 0 auto;
+}
+.shell :global(.sidebar-bottom) {
+  margin-top: auto;
+}
+.shell :global(.signout) {
+  width: 100%;
+  margin-bottom: var(--space-2-25);
+}
+.shell :global(.main-column) {
+  min-height: 100vh;
+  margin-left: 238px;
+}
+.shell :global(.topbar) {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 34px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.93);
+  backdrop-filter: blur(14px);
+}
+.shell :global(.breadcrumb) {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--faint);
+  font: var(--text-xs) var(--mono);
+  letter-spacing: 0.07em;
+}
+.shell :global(.breadcrumb b) {
+  color: #34443a;
+  font:
+    600 var(--text-md) "DM Sans",
+    sans-serif;
+  letter-spacing: 0;
+}
+.shell :global(.breadcrumb-slash) {
+  color: var(--line);
+}
+.shell :global(.topbar-right) {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.shell :global(.user-menu) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-25);
+  padding-left: 18px;
+  border-left: 1px solid var(--line);
+}
+.shell :global(.user-menu > span:last-child) {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.shell :global(.user-menu b) {
+  max-width: 160px;
+  overflow: hidden;
+  color: #3d4b42;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell :global(.user-menu small) {
+  color: var(--faint);
+  font-size: var(--text-xs);
+}
+.shell :global(.user-avatar) {
+  width: 29px;
+  height: 29px;
+  flex-basis: 29px;
+}
+.shell :global(.menu-toggle),
+.shell :global(.mobile-signout),
+.shell :global(.mobile-scrim) {
+  display: none;
+}
+.shell :global(.page-content) {
+  width: min(100%, 1500px);
+  margin: 0 auto;
+  padding: 32px 34px 52px;
+}
+
+@media (max-width: 1120px) {
+  .shell :global(.page-content) {
+    padding-right: 25px;
+    padding-left: 25px;
+  }
+  .shell :global(.topbar) {
+    padding: 0 25px;
+  }
+  .shell :global(.user-menu b) {
+    max-width: 120px;
+  }
+}
+@media (max-width: 820px) {
+  .shell :global(.sidebar) {
+    z-index: 40;
+    width: 260px;
+    transform: translateX(-102%);
+    transition: transform 0.22s ease;
+    box-shadow: 10px 0 40px rgba(25, 46, 34, 0.08);
+  }
+  .shell :global(.sidebar.open) {
+    transform: translateX(0);
+  }
+  .shell :global(.mobile-scrim) {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    border: 0;
+    background: rgba(18, 38, 27, 0.32);
+  }
+  .shell :global(.main-column) {
+    margin-left: 0;
+  }
+  .shell :global(.menu-toggle) {
+    display: inline-flex;
+    margin-right: 12px;
+  }
+  .shell :global(.topbar) {
+    justify-content: flex-start;
+    height: 58px;
+    padding: 0 18px;
+  }
+  .shell :global(.breadcrumb) {
+    flex: 1;
+  }
+  .shell :global(.breadcrumb > span:first-child),
+.shell :global(.breadcrumb-slash) {
+    display: none;
+  }
+  .shell :global(.topbar-right) {
+    gap: 12px;
+  }
+  .shell :global(.user-menu) {
+    padding-left: 0;
+    border: 0;
+  }
+  .shell :global(.user-menu b) {
+    max-width: 155px;
+  }
+  .shell :global(.page-content) {
+    padding: 25px 18px 40px;
+  }
+}
+@media (max-width: 620px) {
+  .shell :global(.page-content) {
+    padding: 21px 14px 32px;
+  }
+  .shell :global(.topbar-right) {
+    gap: 7px;
+  }
+  .shell :global(.user-menu) {
+    gap: 6px;
+  }
+  .shell :global(.user-menu b) {
+    max-width: 90px;
+    font-size: var(--text-xs);
+  }
+  .shell :global(.user-menu small) {
+    font-size: var(--text-xs);
+  }
+  .shell :global(.user-avatar) {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+  }
+  .shell :global(.mobile-signout) {
+    display: inline-flex;
+    width: 28px;
+  }
+}

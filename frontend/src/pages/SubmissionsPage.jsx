@@ -9,6 +9,7 @@ import PageHeading from '../components/PageHeading.jsx';
 import SubmissionRow from '../components/SubmissionRow.jsx';
 import { fetchWidgets } from '../utils/data.js';
 import { fmt } from '../utils/format.js';
+import styles from './SubmissionsPage.module.css';
 
 function csvCell(value) {
   const text = String(value ?? '');
@@ -69,7 +70,7 @@ export default function SubmissionsPage() {
   }
 
   return (
-    <>
+    <div className={styles.root}>
       <PageHeading
         eyebrow="INCOMING DATA"
         title="Submissions"
@@ -173,6 +174,6 @@ export default function SubmissionsPage() {
           </div>
         )}
       </section>
-    </>
+    </div>
   );
 }

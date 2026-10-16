@@ -1,0 +1,110 @@
+.root { display: contents; }
+
+.root :global(.submission-toolbar h2) {
+  margin: 5px 0 4px;
+  color: #23352a;
+  font: 700 var(--text-lg) / 1.35 var(--display);
+  font-size: var(--text-xl);
+  letter-spacing: 0;
+}
+.root :global(.submissions-panel) {
+  padding: 0;
+  overflow: hidden;
+}
+.root :global(.submission-toolbar) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 19px;
+}
+.root :global(.submission-toolbar) {
+  border-bottom: 1px solid var(--line-soft);
+}
+.root :global(.widget-select) {
+  min-width: 225px;
+}
+.root :global(.submissions-table td) {
+  height: 62px;
+}
+.root :global(.block-id) {
+  display: block;
+  margin-top: 4px;
+  color: #a0aaa2;
+}
+.root :global(.payload-values) {
+  display: flex;
+  gap: 11px;
+  max-width: 310px;
+  overflow: hidden;
+}
+.root :global(.payload-values span) {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 110px;
+  overflow: hidden;
+  color: #56665c;
+  text-overflow: ellipsis;
+}
+.root :global(.payload-values small) {
+  color: var(--faint);
+  font: var(--text-xs) var(--mono);
+}
+.root :global(.pagination) {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--space-2) 18px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font: var(--text-xs) var(--mono);
+}
+.root :global(.pagination > div) {
+  display: flex;
+  gap: 6px;
+}
+.root :global(.pagination .button) {
+  min-height: 30px;
+  font:
+    var(--text-xs) "DM Sans",
+    sans-serif;
+  font-size: var(--text-md);
+}
+.root :global(.pagination .button:disabled) {
+  opacity: 0.42;
+}
+.root :global(.pagination-sep) {
+  padding: 0 3px;
+  color: #c2cbc4;
+}
+@media (max-width: 620px) {
+  .root :global(.submission-toolbar h2) {
+    font-size: var(--text-lg);
+  }
+  .root :global(.submission-toolbar) {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 14px;
+  }
+  .root :global(.submissions-table) {
+    min-width: 760px;
+  }
+  .root :global(.submission-toolbar) {
+    gap: 11px;
+  }
+  .root :global(.widget-select) {
+    width: 100%;
+  }
+  .root :global(.pagination) {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 11px 14px;
+  }
+  .root :global(.pagination > div) {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
