@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, ShieldCheck, X, Zap } from 'lucide-react';
 import { api, jsonBody } from '../api.js';
@@ -9,6 +9,7 @@ import Notice from './Notice.jsx';
 import styles from './WidgetFormModal.module.css';
 
 export default function WidgetFormModal({ widget, onClose, onSaved }) {
+  const closeRequestRef = useRef(null);
   const [title, setTitle] = useState(widget?.title || '');
   const [description, setDescription] = useState(widget?.description || '');
   const [buttonText, setButtonText] = useState(widget?.button_text || 'Sign up');
@@ -53,7 +54,9 @@ export default function WidgetFormModal({ widget, onClose, onSaved }) {
     const formFields = fields.map(({ id, ...field }) => field);
     saveMutation.mutate(
       { title, description, button_text: buttonText, form_fields: formFields },
-      { onSuccess: (response) => onSaved(unwrap(response)) },
+      {
+        onSuccess: (response) => closeRequestRef.current(() => onSaved(unwrap(response))),
+      },
     );
   }
 
@@ -61,6 +64,8 @@ export default function WidgetFormModal({ widget, onClose, onSaved }) {
     <ModalDialog
       ariaLabel={widget ? 'Edit widget configuration' : 'Create a widget'}
       className={styles.builderModal}
+      canClose={!busy}
+      closeRequestRef={closeRequestRef}
       onClose={onClose}
     >
       <div className={styles.root}>
@@ -70,7 +75,12 @@ export default function WidgetFormModal({ widget, onClose, onSaved }) {
             <h2>{widget ? 'Update widget' : 'Create a widget'}</h2>
             <p>Set up the public capture form and its fields.</p>
           </div>
-          <button className="icon-button" aria-label="Close widget form" onClick={onClose}>
+          <button
+            className="icon-button"
+            aria-label="Close widget form"
+            disabled={busy}
+            onClick={() => closeRequestRef.current()}
+          >
             <X size={18} />
           </button>
         </div>
@@ -118,7 +128,7 @@ export default function WidgetFormModal({ widget, onClose, onSaved }) {
             <ShieldCheck size={15} /> A honeypot field is added automatically to reduce spam.
           </div>
           <div className="modal-actions">
-            <button type="button" className="button secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="button secondary" disabled={busy} onClick={() => closeRequestRef.current()}>Cancel</button>
             <button className="button primary" disabled={busy}>
               {busy ? 'Saving…' : widget ? 'Save changes' : 'Create widget'}
               <ArrowRight size={15} />

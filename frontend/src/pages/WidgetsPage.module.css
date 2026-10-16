@@ -70,6 +70,13 @@
   border-radius: 5px;
   background: var(--paper);
   color: var(--muted);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background-color 0.15s;
+}
+.root :global(.search-field:hover) {
+  border-color: var(--faint);
 }
 .root :global(.search-field input) {
   min-height: 0;
@@ -144,6 +151,34 @@
 }
 .root :global(.align-right) {
   text-align: right;
+}
+.root :global(.copy-indicator) {
+  position: relative;
+  display: grid;
+  width: 16px;
+  height: 16px;
+}
+.root :global(.copy-indicator svg) {
+  grid-area: 1 / 1;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+.root :global(.copy-code) {
+  opacity: 1;
+  transform: scale(1);
+}
+.root :global(.copy-check) {
+  opacity: 0;
+  transform: scale(0.7);
+}
+.root :global(.copy-indicator.is-copied .copy-code) {
+  opacity: 0;
+  transform: scale(0.7);
+}
+.root :global(.copy-indicator.is-copied .copy-check) {
+  opacity: 1;
+  transform: scale(1);
 }
 @media (max-width: 620px) {
   .root :global(.list-summary h2) {

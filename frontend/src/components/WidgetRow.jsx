@@ -30,7 +30,10 @@ export default function WidgetRow({ widget, onEdit, onDelete, onCopy, copied }) 
             aria-label={copied ? 'Copied embed snippet' : 'Copy embed snippet'}
             onClick={onCopy}
           >
-            {copied ? <Check size={16} /> : <Code2 size={16} />}
+            <span className={`copy-indicator ${copied ? 'is-copied' : ''}`} aria-hidden="true">
+              <Code2 className="copy-code" size={16} />
+              <Check className="copy-check" size={16} />
+            </span>
           </button>
           <button className="row-action" title="Edit widget" aria-label="Edit widget" onClick={onEdit}>
             <SlidersHorizontal size={16} />

@@ -23,6 +23,24 @@
   box-shadow: 0 20px 65px rgba(25, 49, 35, 0.2);
   animation: rise-in 0.2s ease-out;
 }
+.backdrop.closing {
+  pointer-events: none;
+  animation: backdrop-exit 0.2s ease-in forwards;
+}
+.card.closing {
+  animation: card-exit 0.2s ease-in forwards;
+}
+@keyframes backdrop-exit {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes card-exit {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
 @media (max-width: 620px) {
   .backdrop {
     align-items: flex-end;
@@ -33,5 +51,14 @@
     max-height: 92vh;
     padding: 18px 16px 22px;
     border-radius: 8px 8px 0 0;
+  }
+  .card.closing {
+    animation: sheet-exit 0.2s ease-in forwards;
+  }
+}
+@keyframes sheet-exit {
+  to {
+    opacity: 0;
+    transform: translateY(32px);
   }
 }

@@ -1,7 +1,10 @@
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { FileText, Plus, Trash2 } from 'lucide-react';
 import { withClientId } from '../utils/data.js';
 
 export default function FieldConfigurator({ fields, setFields, duplicateFieldIds }) {
+  const [fieldListRef] = useAutoAnimate({ duration: 180, easing: 'ease-out' });
+
   function updateField(index, patch) {
     setFields((currentFields) => currentFields.map((field, current) => (
       current === index ? { ...field, ...patch } : field
@@ -25,7 +28,7 @@ export default function FieldConfigurator({ fields, setFields, duplicateFieldIds
   }
 
   return (
-    <section className="field-configurator">
+    <section className="field-configurator" ref={fieldListRef}>
       <div className="field-config-heading">
         <span>CAPTURE FIELDS <b>{fields.length}</b></span>
         <button type="button" onClick={addField}><Plus size={14} />Add field</button>

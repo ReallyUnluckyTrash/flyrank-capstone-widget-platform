@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import Notice from '../components/Notice.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import SubmissionRow from '../components/SubmissionRow.jsx';
+import TableSkeleton from '../components/TableSkeleton.jsx';
 import { fetchWidgets } from '../utils/data.js';
 import { fmt } from '../utils/format.js';
 import styles from './SubmissionsPage.module.css';
@@ -55,6 +56,9 @@ export default function SubmissionsPage() {
   const submissionsQuery = useQuery({
     queryKey: ['submissions', selectedId, page],
     queryFn: () => api(`/widgets/${selectedId}/submissions?page=${page}&page_size=25`),
+    placeholderData: (previousData, previousQuery) => (
+      previousQuery?.queryKey[1] === selectedId ? previousData : undefined
+    ),
     enabled: Boolean(selectedId),
   });
   const result = submissionsQuery.data;
@@ -126,7 +130,7 @@ export default function SubmissionsPage() {
           </button>
         </div>
         {submissionsQuery.isLoading ? (
-          <div className="loading-row"><span className="loader" />Loading submissions</div>
+          <TableSkeleton label="Loading submissions" columns={5} rows={5} />
         ) : !selectedId ? (
           <EmptyState
             icon={Inbox}
@@ -135,7 +139,7 @@ export default function SubmissionsPage() {
             action={<Link className="button primary" to="/widgets"><WalletCards size={15} />Manage widgets</Link>}
           />
         ) : entries.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll" aria-busy={submissionsQuery.isFetching}>
             <table className="data-table submissions-table">
               <thead><tr><th>RECEIVED</th><th>CONTACT</th><th>LOCATION</th><th>FORM DATA</th><th>STATUS</th></tr></thead>
               <tbody>{entries.map((item) => <SubmissionRow key={item.id} item={item} />)}</tbody>

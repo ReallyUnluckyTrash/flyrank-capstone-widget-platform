@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, RefreshCw, Search, WalletCards } from 'lucide-react';
@@ -10,6 +11,7 @@ import Notice from '../components/Notice.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import WidgetFormModal from '../components/WidgetFormModal.jsx';
 import WidgetRow from '../components/WidgetRow.jsx';
+import TableSkeleton from '../components/TableSkeleton.jsx';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard.js';
 import { fetchWidgets, normalizeWidget } from '../utils/data.js';
 import styles from './WidgetsPage.module.css';
@@ -18,6 +20,7 @@ export default function WidgetsPage() {
   const [query, setQuery] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [widgetToDelete, setWidgetToDelete] = useState(null);
+  const [tableBodyRef] = useAutoAnimate({ duration: 180, easing: 'ease-out' });
   const { copy, copiedText, error: clipboardError } = useCopyToClipboard();
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,7 +31,6 @@ export default function WidgetsPage() {
     mutationFn: (widget) => api(`/widgets/${widget.id}`, { method: 'DELETE' }),
     onSuccess: (_, widget) => {
       queryClient.setQueryData(['widgets'], (items = []) => items.filter((item) => item.id !== widget.id));
-      setWidgetToDelete(null);
     },
   });
 
@@ -92,14 +94,14 @@ export default function WidgetsPage() {
           </div>
         </div>
         {widgetsQuery.isLoading ? (
-          <div className="loading-row"><span className="loader" />Loading widget configurations</div>
+          <TableSkeleton label="Loading widget configurations" columns={6} rows={4} />
         ) : filtered.length ? (
-          <div className="table-scroll">
+          <div className="table-scroll" aria-busy={widgetsQuery.isFetching}>
             <table className="data-table widgets-table">
               <thead>
                 <tr><th>WIDGET</th><th>FIELDS</th><th>SUBMISSIONS</th><th>CREATED</th><th>STATUS</th><th className="align-right">ACTIONS</th></tr>
               </thead>
-              <tbody>
+              <tbody ref={tableBodyRef}>
                 {filtered.map((widget) => (
                   <WidgetRow
                     key={widget.id}
@@ -135,7 +137,7 @@ export default function WidgetsPage() {
           widget={widgetToDelete}
           mutation={deleteMutation}
           onClose={() => setWidgetToDelete(null)}
-          onConfirm={() => deleteMutation.mutate(widgetToDelete)}
+          onConfirm={(requestClose) => deleteMutation.mutate(widgetToDelete, { onSuccess: () => requestClose() })}
         />
       )}
     </div>

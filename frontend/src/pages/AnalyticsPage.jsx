@@ -8,6 +8,7 @@ import Metric from '../components/Metric.jsx';
 import Notice from '../components/Notice.jsx';
 import PageHeading from '../components/PageHeading.jsx';
 import SubmissionFeedRow from '../components/SubmissionFeedRow.jsx';
+import TableSkeleton from '../components/TableSkeleton.jsx';
 import { fmt, shortDate } from '../utils/format.js';
 import { unwrap, unwrapList } from '../utils/data.js';
 import styles from './AnalyticsPage.module.css';
@@ -95,7 +96,11 @@ export default function AnalyticsPage() {
             <span className="legend"><i /> Submissions</span>
           </div>
           {loading && !data.series.length ? (
-            <div className="empty-chart"><span className="loader" /></div>
+            <div className="chart-skeleton" role="status" aria-label="Loading submission activity">
+              {[28, 52, 36, 72, 44, 86, 61, 39].map((height, index) => (
+                <i key={index} style={{ height: `${height}%`, animationDelay: `${index * 18}ms` }} />
+              ))}
+            </div>
           ) : data.series.length ? (
             <div className="volume-chart">
               <div className="chart-axis">
@@ -106,7 +111,12 @@ export default function AnalyticsPage() {
               <div className="chart-columns">
                 {data.series.map((point, index) => (
                   <div className="chart-column" key={point.date} title={`${shortDate(point.date)}: ${point.submissions}`}>
-                    <span style={{ height: `${Math.max((Number(point.submissions) / peak) * 100, 3)}%` }} />
+                    <span
+                      style={{
+                        '--bar-height': `${Math.max((Number(point.submissions) / peak) * 100, 3)}%`,
+                        '--bar-index': index,
+                      }}
+                    />
                     <small>
                       {index === 0 || index === data.series.length - 1 || index % Math.ceil(data.series.length / 5) === 0
                         ? shortDate(point.date)
@@ -136,7 +146,12 @@ export default function AnalyticsPage() {
                       <span>{fmt.format(Number(country.submissions))}</span>
                     </div>
                     <div className="progress-track">
-                      <i style={{ width: `${pct}%`, backgroundColor: ['#087d56', '#52a788', '#92c4ac', '#e8aa68', '#6599a0'][index % 5] }} />
+                      <i
+                        style={{
+                          '--progress-width': `${pct}%`,
+                          backgroundColor: ['#087d56', '#52a788', '#92c4ac', '#e8aa68', '#6599a0'][index % 5],
+                        }}
+                      />
                     </div>
                   </div>
                 );
@@ -156,8 +171,10 @@ export default function AnalyticsPage() {
           <div><span className="eyebrow">RECENT ACTIVITY</span><h2>Latest submissions</h2></div>
           <Link className="text-link" to="/submissions">Browse widgets <ArrowRight size={15} /></Link>
         </div>
-        {data.feed.length ? (
-          <div className="table-scroll">
+        {loading && !data.feed.length ? (
+          <TableSkeleton label="Loading recent submissions" columns={6} rows={4} />
+        ) : data.feed.length ? (
+          <div className="table-scroll" aria-busy={analyticsQuery.isFetching}>
             <table className="data-table">
               <thead><tr><th>RECEIVED</th><th>WIDGET</th><th>SUBMISSION</th><th>LOCATION</th><th>STATUS</th><th /></tr></thead>
               <tbody>{data.feed.map((item) => <SubmissionFeedRow key={item.id} item={item} />)}</tbody>
@@ -170,7 +187,7 @@ export default function AnalyticsPage() {
             description={loading ? 'Fetching the latest activity.' : 'New submissions will appear here as soon as they arrive.'}
           />
         )}
-        <div className="table-foot">
+        <div className={`table-foot ${analyticsQuery.isFetching ? 'is-refreshing' : ''}`}>
           <span><i className="status-dot" /> Refreshes every 30 seconds</span>
           <span>Showing up to 7 latest entries</span>
         </div>

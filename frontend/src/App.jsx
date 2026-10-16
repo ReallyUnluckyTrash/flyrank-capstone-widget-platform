@@ -157,7 +157,14 @@ function Workspace({ profile, onSignOut, mobileNav, setMobileNav }) {
           </button>
         </div>
       </aside>
-      {mobileNav && <button className="mobile-scrim" aria-label="Close navigation" onClick={closeMobileNav} />}
+      <button
+        className={`mobile-scrim ${mobileNav ? 'visible' : ''}`}
+        aria-label="Close navigation"
+        aria-hidden={!mobileNav}
+        tabIndex={mobileNav ? 0 : -1}
+        disabled={!mobileNav}
+        onClick={closeMobileNav}
+      />
       <div className="main-column">
         <header className="topbar">
           <button
@@ -183,7 +190,7 @@ function Workspace({ profile, onSignOut, mobileNav, setMobileNav }) {
             </button>
           </div>
         </header>
-        <main className="page-content">
+        <main className="page-content" key={location.pathname}>
           <Routes>
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="widgets" element={<WidgetsPage />} />

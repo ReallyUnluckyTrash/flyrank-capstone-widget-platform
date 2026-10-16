@@ -152,10 +152,43 @@
 }
 .root :global(.chart-column > span) {
   width: min(56%, 17px);
+  height: var(--bar-height);
   min-height: 3px;
   border-radius: 3px 3px 0 0;
   background: linear-gradient(180deg, var(--green-mid), var(--green));
   transition: height 0.3s ease;
+  animation: chart-grow 0.24s ease-out both;
+  animation-delay: min(calc(var(--bar-index) * 12ms), 120ms);
+}
+@keyframes chart-grow {
+  from {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+  to {
+    transform: scaleY(1);
+    transform-origin: bottom;
+  }
+}
+.root :global(.chart-skeleton) {
+  height: 220px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 12px;
+  padding: 12px 4px 20px 41px;
+  border-bottom: 1px solid var(--line);
+}
+.root :global(.chart-skeleton i) {
+  width: min(7%, 17px);
+  min-height: 18px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(90deg, var(--line-soft), var(--surface-soft), var(--line-soft));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.root :global(.chart-skeleton i:nth-child(even)) {
+  animation-delay: -0.35s;
 }
 .root :global(.chart-column small) {
   position: absolute;
@@ -163,11 +196,6 @@
   color: var(--faint);
   font: var(--text-xs) var(--mono);
   white-space: nowrap;
-}
-.root :global(.empty-chart) {
-  height: 220px;
-  display: grid;
-  place-items: center;
 }
 .root :global(.country-panel) {
   display: flex;
@@ -206,9 +234,22 @@
 }
 .root :global(.progress-track i) {
   display: block;
+  width: var(--progress-width);
   height: 100%;
   min-width: 3px;
   border-radius: inherit;
+  transition: width 0.25s ease-out;
+  animation: progress-grow 0.3s ease-out both;
+}
+@keyframes progress-grow {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
 }
 .root :global(.country-foot) {
   display: flex;
@@ -234,6 +275,14 @@
 }
 .root :global(.panel-heading-row) {
   align-items: center;
+}
+.root :global(.data-panel .table-foot .status-dot) {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+.root :global(.data-panel .table-foot.is-refreshing .status-dot) {
+  animation: status-pulse 0.24s ease-in-out;
 }
 
 @media (max-width: 1120px) {
