@@ -46,6 +46,7 @@ describe('createSubmission', () => {
 		} else {
 			process.env.WEBHOOK_URL = originalWebhookUrl;
 		}
+		jest.restoreAllMocks();
 	});
 
 	test('validates and persists a submission, then broadcasts it', async () => {
@@ -136,5 +137,41 @@ describe('createSubmission', () => {
 		});
 		expect(enrichIp).not.toHaveBeenCalled();
 		expect(poolQuery).not.toHaveBeenCalled();
+	});
+
+	test('does not broadcast or send a webhook when persistence fails', async () => {
+		const databaseError = new Error('database unavailable');
+		poolQuery.mockRejectedValue(databaseError);
+		process.env.WEBHOOK_URL = 'https://example.test/webhook';
+		const fetch = jest.spyOn(globalThis, 'fetch');
+
+		await expect(createSubmission('widget-1', {
+			name: 'Sam',
+			email: 'sam@example.com',
+			_hp_website: '',
+		}, { ip: '8.8.8.8' })).rejects.toBe(databaseError);
+
+		expect(broadcastToTenant).not.toHaveBeenCalled();
+		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	test('keeps a successful submission successful when the webhook request fails', async () => {
+		process.env.WEBHOOK_URL = 'https://example.test/webhook';
+		jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('webhook unavailable'));
+		const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const result = await createSubmission('widget-1', {
+			name: 'Sam',
+			email: 'sam@example.com',
+			_hp_website: '',
+		}, { ip: '8.8.8.8' });
+
+		await new Promise((resolve) => setImmediate(resolve));
+		expect(result.id).toBeDefined();
+		expect(broadcastToTenant).toHaveBeenCalledTimes(1);
+		expect(warn).toHaveBeenCalledWith(
+			'Submission webhook failed:',
+			'webhook unavailable',
+		);
 	});
 });
