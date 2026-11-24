@@ -84,11 +84,17 @@ Make sure the root `.env` file contains these values:
 
 ```text
 POSTGRES_USER=user
-POSTGRES_PASSWORD=password
-DATABASE_URL=postgresql://user:password@localhost:5432/widget_db
+POSTGRES_PASSWORD=local-only-change-this-password
+POSTGRES_DB=widget_db
+DATABASE_URL=postgresql://user:local-only-change-this-password@localhost:5432/widget_db
+PUBLIC_APP_URL=http://localhost:3000
+VITE_PUBLIC_APP_URL=http://localhost:3000
 SUPABASE_URL=<your Supabase project URL>
 SUPABASE_KEY=<your Supabase publishable/anon key>
 ```
+
+The example database password is for local development only. Use a unique
+strong password for any public deployment.
 
 The Supabase project must allow email/password sign-up and login. The seed
 script creates the demo users through the API's normal auth routes.
@@ -188,6 +194,41 @@ To start the complete stack and load demo data:
 ```sh
 npm --prefix backend run seed:demo
 ```
+
+## Production-style deployment demo
+
+The Compose production profile runs Caddy in front of the dashboard and API.
+Caddy obtains and renews HTTPS certificates automatically. Before starting it,
+point a public DNS name at the Docker host and allow inbound TCP ports 80 and
+443 (and UDP 443 for HTTP/3).
+
+Create a separate environment file so deployment credentials are not mixed
+with local development settings:
+
+```powershell
+Copy-Item .env.example .env.production
+```
+
+In `.env.production`, set a unique, URL-safe `POSTGRES_PASSWORD`, your
+production Supabase URL and publishable/anon key, and the same public origin
+for `PUBLIC_DOMAIN`, `PUBLIC_APP_URL`, and `VITE_PUBLIC_APP_URL`. For example,
+if `PUBLIC_DOMAIN` is `widgets.example.com`, both app URLs should be
+`https://widgets.example.com`. Do not use the demo Supabase project or demo
+seed accounts for real users.
+
+Start the deployment with:
+
+```powershell
+docker compose -p flyrank-prod --env-file .env.production --profile production up -d --build
+```
+
+Only Caddy publishes ports on all interfaces. PostgreSQL, the API, and the
+frontend ports are bound to loopback for local diagnostics; PostgreSQL is on a
+private Docker network that Caddy cannot access. The named database volume
+persists across container replacements, but it is not a backup—set up and test
+database backups before storing real data. The SQL files mounted into
+`docker-entrypoint-initdb.d` run only when PostgreSQL initializes an empty
+volume; apply future schema changes using a migration process.
 
 ## Limitations
 
