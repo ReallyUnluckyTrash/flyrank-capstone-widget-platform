@@ -60,33 +60,8 @@ services:
     networks:
       - app
     restart: unless-stopped
-  caddy:
-    image: caddy:2-alpine
-    profiles:
-      - production
-    environment:
-      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      api:
-        condition: service_started
-      frontend:
-        condition: service_started
-    networks:
-      - app
-    restart: unless-stopped
-
 volumes:
   db_data:
-  caddy_data:
-  caddy_config:
 
 networks:
   app:

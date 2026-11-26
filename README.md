@@ -201,40 +201,31 @@ To start the complete stack and load demo data:
 npm --prefix backend run seed:demo
 ```
 
-## Production-style deployment demo
+## Public demo with ngrok
 
-The Compose production profile runs Caddy in front of the dashboard and API.
-Caddy obtains and renews HTTPS certificates automatically. Before starting it,
-point a public DNS name at the Docker host and allow inbound TCP ports 80 and
-443 (and UDP 443 for HTTP/3).
-
-Create a separate environment file so deployment credentials are not mixed
-with local development settings:
+The Compose stack binds its API and frontend to localhost. To make the demo
+accessible through ngrok, open two terminals and start a tunnel for each:
 
 ```powershell
-Copy-Item .env.example .env.production
+ngrok http 3000
+ngrok http 3001
 ```
 
-In `.env.production`, set a unique, URL-safe `POSTGRES_PASSWORD`, your
-production Supabase URL and publishable/anon key, and the same public origin
-for `PUBLIC_DOMAIN`, `PUBLIC_APP_URL`, and `VITE_PUBLIC_APP_URL`. For example,
-if `PUBLIC_DOMAIN` is `widgets.example.com`, both app URLs should be
-`https://widgets.example.com`. Do not use the demo Supabase project or demo
-seed accounts for real users.
-
-Start the deployment with:
+Use the port-3001 tunnel URL to open the dashboard. Put the port-3000 tunnel's
+HTTPS URL in both `PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` in your local
+`.env` file. Those values are used to generate embed snippets and are not
+needed in `.env.example`. Rebuild after changing the frontend URL:
 
 ```powershell
-docker compose -p flyrank-prod --env-file .env.production --profile production up -d --build
+docker compose up -d --build
 ```
 
-Only Caddy publishes ports on all interfaces. PostgreSQL, the API, and the
-frontend ports are bound to loopback for local diagnostics; PostgreSQL is on a
-private Docker network that Caddy cannot access. The named database volume
-persists across container replacements, but it is not a backup—set up and test
-database backups before storing real data. The SQL files mounted into
-`docker-entrypoint-initdb.d` run only when PostgreSQL initializes an empty
-volume; apply future schema changes using a migration process.
+The ngrok URLs may change when tunnels restart; update `.env` and rebuild the
+frontend if the API tunnel URL changes. Caddy is not part of this setup because
+ngrok provides the public HTTPS endpoint. The named database volume persists
+across container replacements, but it is not a backup. The SQL files mounted
+into `docker-entrypoint-initdb.d` run only when PostgreSQL initializes an
+empty volume; apply future schema changes using a migration process.
 
 ## Limitations
 
