@@ -16,7 +16,7 @@ The main parts are:
 - PostgreSQL database running in Docker
 - Supabase authentication for widget owners
 - A small JavaScript file that displays the widget
-- IP location lookup using two providers, with fallback behavior
+- HTTPS IP location lookup using ipwho.is, with ipapi.co as a fallback
 
 ## Architecture
 
@@ -41,7 +41,7 @@ Public widget endpoints
 		|
 		+--> validate input
 		+--> rate limit and honeypot check
-		+--> geo provider A, then provider B
+		+--> HTTPS geo lookup via ipwho.is, then ipapi.co fallback
 		+--> save submission
 		+--> optional webhook (does not block saving)
 ```
@@ -94,7 +94,8 @@ SUPABASE_KEY=<your Supabase publishable/anon key>
 ```
 
 The example database password is for local development only. Use a unique
-strong password for any public deployment.
+strong, URL-safe password for any public deployment because Compose also uses
+it in the PostgreSQL connection URL.
 `PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` must be set to the public API origin
 used by generated widget embed snippets. For local development, the example
 values point to `http://localhost:3000`.
@@ -203,29 +204,30 @@ npm --prefix backend run seed:demo
 
 ## Public demo with ngrok
 
-The Compose stack binds its API and frontend to localhost. To make the demo
-accessible through ngrok, open two terminals and start a tunnel for each:
+The Compose stack binds its API and frontend to localhost. Nginx serves the
+dashboard and proxies its API requests, widget JavaScript, widget config, and
+submission requests to the API container. To make the complete demo accessible
+through one ngrok URL, start a tunnel to the frontend:
 
 ```powershell
-ngrok http 3000
-ngrok http 3001
+ngrok http 3001 --url https://<your-ngrok-domain>
 ```
 
-Use the port-3001 tunnel URL to open the dashboard. Put the port-3000 tunnel's
-HTTPS URL in both `PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` in your local
-`.env` file. Those values are used to generate embed snippets and are not
-needed in `.env.example`. Rebuild after changing the frontend URL:
+Set both `PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` in your local `.env` file
+to that same HTTPS URL before building. Those values generate embed snippets
+and should not contain your live ngrok URL in `.env.example`.
 
 ```powershell
 docker compose up -d --build
 ```
 
-The ngrok URLs may change when tunnels restart; update `.env` and rebuild the
-frontend if the API tunnel URL changes. Caddy is not part of this setup because
-ngrok provides the public HTTPS endpoint. The named database volume persists
-across container replacements, but it is not a backup. The SQL files mounted
-into `docker-entrypoint-initdb.d` run only when PostgreSQL initializes an
-empty volume; apply future schema changes using a migration process.
+Open the ngrok URL to use the dashboard and use the generated embed snippet on
+another site. If the ngrok URL changes, update `.env` and rebuild. Ngrok
+provides the public HTTPS endpoint; the API container itself remains on the
+Docker network. The named database volume persists across container
+replacements, but it is not a backup. The SQL files mounted into
+`docker-entrypoint-initdb.d` run only when PostgreSQL initializes an empty
+volume; apply future schema changes using a migration process.
 
 ## Limitations
 
@@ -241,6 +243,10 @@ empty volume; apply future schema changes using a migration process.
 	SLA; review the provider's current terms before relying on it for real users.
 	The app stores submissions even when both providers fail, but the location
 	will be empty.
+- Submission data includes form contents and visitor IP addresses. Set a clear
+	privacy notice and data-retention policy before collecting real users' data.
+	The dashboard stores auth tokens in browser local storage; review that
+	security tradeoff before production use.
 - The rate limiter uses the API process's memory, so it is not suitable for
 	multiple API servers without a shared rate-limit store.
 - The webhook is optional and only sends a basic JSON request. It has no retry
