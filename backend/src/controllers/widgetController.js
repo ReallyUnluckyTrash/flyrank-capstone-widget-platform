@@ -19,8 +19,7 @@ function getTenantId(request) {
     return request.user.id;
 }
 
-function getEmbedSnippet(widgetId) {
-    const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:3000';
+function getEmbedSnippet(widgetId, baseUrl) {
     const widgetVersion = process.env.WIDGET_VERSION || '1';
     return `<script src="${baseUrl}/widget.js?id=${widgetId}&v=${encodeURIComponent(widgetVersion)}" defer></script>`;
 }
@@ -45,10 +44,15 @@ export const widgetController = {
             return res.status(400).send({ error: 'Title and form_fields are required' });
         }
 
+        const baseUrl = process.env.PUBLIC_APP_URL?.trim().replace(/\/+$/, '');
+        if (!baseUrl) {
+            return res.status(500).send({ error: 'PUBLIC_APP_URL is not configured' });
+        }
+
         const widget = await createWidget(getTenantId(req), input);
         return res.status(201).send({
             data: widget,
-            embed_snippet: getEmbedSnippet(widget.id),
+            embed_snippet: getEmbedSnippet(widget.id, baseUrl),
         });
     },
 

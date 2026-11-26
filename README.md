@@ -16,7 +16,7 @@ The main parts are:
 - PostgreSQL database running in Docker
 - Supabase authentication for widget owners
 - A small JavaScript file that displays the widget
-- IP location lookup using two providers, with fallback behavior
+- HTTPS IP location lookup using ipwho.is, with ipapi.co as a fallback
 
 ## Architecture
 
@@ -41,7 +41,7 @@ Public widget endpoints
 		|
 		+--> validate input
 		+--> rate limit and honeypot check
-		+--> geo provider A, then provider B
+		+--> HTTPS geo lookup via ipwho.is, then ipapi.co fallback
 		+--> save submission
 		+--> optional webhook (does not block saving)
 ```
@@ -84,11 +84,21 @@ Make sure the root `.env` file contains these values:
 
 ```text
 POSTGRES_USER=user
-POSTGRES_PASSWORD=password
-DATABASE_URL=postgresql://user:password@localhost:5432/widget_db
+POSTGRES_PASSWORD=local-only-change-this-password
+POSTGRES_DB=widget_db
+DATABASE_URL=postgresql://user:local-only-change-this-password@localhost:5432/widget_db
+PUBLIC_APP_URL=http://localhost:3000
+VITE_PUBLIC_APP_URL=http://localhost:3000
 SUPABASE_URL=<your Supabase project URL>
 SUPABASE_KEY=<your Supabase publishable/anon key>
 ```
+
+The example database password is for local development only. Use a unique
+strong, URL-safe password for any public deployment because Compose also uses
+it in the PostgreSQL connection URL.
+`PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` must be set to the public API origin
+used by generated widget embed snippets. For local development, the example
+values point to `http://localhost:3000`.
 
 The Supabase project must allow email/password sign-up and login. The seed
 script creates the demo users through the API's normal auth routes.
@@ -101,6 +111,9 @@ docker compose up -d --build
 
 The API is available at `http://localhost:3000` and the React dashboard at
 `http://localhost:3001`.
+The API exposes `/health/live` for process liveness and `/health/ready` for
+database-backed readiness; Compose uses the readiness endpoint to monitor the
+API container.
 The seed command in the next step also runs this startup command, so you can
 skip this step when you only want the demo environment.
 
@@ -189,6 +202,33 @@ To start the complete stack and load demo data:
 npm --prefix backend run seed:demo
 ```
 
+## Public demo with ngrok
+
+The Compose stack binds its API and frontend to localhost. Nginx serves the
+dashboard and proxies its API requests, widget JavaScript, widget config, and
+submission requests to the API container. To make the complete demo accessible
+through one ngrok URL, start a tunnel to the frontend:
+
+```powershell
+ngrok http 3001 --url https://<your-ngrok-domain>
+```
+
+Set both `PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` in your local `.env` file
+to that same HTTPS URL before building. Those values generate embed snippets
+and should not contain your live ngrok URL in `.env.example`.
+
+```powershell
+docker compose up -d --build
+```
+
+Open the ngrok URL to use the dashboard and use the generated embed snippet on
+another site. If the ngrok URL changes, update `.env` and rebuild. Ngrok
+provides the public HTTPS endpoint; the API container itself remains on the
+Docker network. The named database volume persists across container
+replacements, but it is not a backup. The SQL files mounted into
+`docker-entrypoint-initdb.d` run only when PostgreSQL initializes an empty
+volume; apply future schema changes using a migration process.
+
 ## Limitations
 
 - Authentication depends on a working Supabase project and valid Supabase
@@ -197,8 +237,16 @@ npm --prefix backend run seed:demo
 	log in. Disable required email confirmation for local testing if necessary.
 - Demo tenant IDs come from Supabase at seed time. The widget IDs are fixed, but
 	tenant IDs may change when seeding against another Supabase project.
-- Geo lookup depends on external internet services. The app stores the
-	submission even when both providers fail, but the location will be empty.
+- Geo lookup sends public visitor IP addresses to ipwho.is, then ipapi.co if the
+	primary lookup fails. The ipwho.is free endpoint requires no API key, allows
+	commercial use, and is limited to 1,000 requests per day without an uptime
+	SLA; review the provider's current terms before relying on it for real users.
+	The app stores submissions even when both providers fail, but the location
+	will be empty.
+- Submission data includes form contents and visitor IP addresses. Set a clear
+	privacy notice and data-retention policy before collecting real users' data.
+	The dashboard stores auth tokens in browser local storage; review that
+	security tradeoff before production use.
 - The rate limiter uses the API process's memory, so it is not suitable for
 	multiple API servers without a shared rate-limit store.
 - The webhook is optional and only sends a basic JSON request. It has no retry

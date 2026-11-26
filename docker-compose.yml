@@ -1,42 +1,69 @@
 services:
   db:
     image: postgres:18-alpine
-    container_name: flyrank-db
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: widget_db
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-widget_db}
     ports:
-      - 5432:5432
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: [CMD-SHELL, pg_isready -U user -d widget_db]
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
       interval: 5s
       timeout: 5s
       retries: 5
     volumes:
       - db_data:/var/lib/postgresql/
       - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - database
+    restart: unless-stopped
   api:
     build: ./backend
-    container_name: flyrank-api
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/widget_db
+      DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-widget_db}
       SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in .env}
       SUPABASE_KEY: ${SUPABASE_KEY:?Set SUPABASE_KEY in .env}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:?Set PUBLIC_APP_URL in .env}
       PORT: 3000
     ports:
-      - 3000:3000
+      - "127.0.0.1:${API_PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - app
+      - database
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
   frontend:
-    build: ./frontend
-    container_name: flyrank-frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:?Set VITE_PUBLIC_APP_URL in .env}
     ports:
-      - 3001:80
+      - "127.0.0.1:${FRONTEND_PORT:-3001}:80"
     depends_on:
       api:
-        condition: service_started
-
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
 volumes:
   db_data:
+
+networks:
+  app:
+  database:
+    internal: true

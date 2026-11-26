@@ -29,10 +29,11 @@ export async function enrichIp(request) {
 	if (!ip || isPrivateIp(ip)) return { ipAddress: ip || null, country: null, city: null };
 
 	try {
-		const data = await fetchJson(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,city`);
-		if (data.status === 'success') {
+		const data = await fetchJson(`https://ipwho.is/${encodeURIComponent(ip)}`);
+		if (data.success === true) {
 			return { ipAddress: ip, country: data.country ?? null, city: data.city ?? null };
 		}
+		throw new Error(data.message || 'Primary geo provider returned no result');
 	} catch (error) {
 		console.warn('Primary geo provider failed:', error.message);
 	}
