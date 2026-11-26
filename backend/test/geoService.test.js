@@ -20,7 +20,7 @@ describe('enrichIp', () => {
 	test('uses the primary provider for public IP addresses', async () => {
 		const fetch = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
 			ok: true,
-			json: async () => ({ status: 'success', country: 'Canada', city: 'Toronto' }),
+			json: async () => ({ success: true, country: 'Canada', city: 'Toronto' }),
 		});
 
 		await expect(enrichIp({ ip: '8.8.8.8' })).resolves.toEqual({
@@ -29,7 +29,7 @@ describe('enrichIp', () => {
 			city: 'Toronto',
 		});
 		expect(fetch).toHaveBeenCalledTimes(1);
-		expect(fetch.mock.calls[0][0]).toContain('ip-api.com/json/8.8.8.8');
+		expect(fetch.mock.calls[0][0]).toBe('https://ipwho.is/8.8.8.8');
 	});
 
 	test('uses the fallback provider when the primary provider fails', async () => {
@@ -47,7 +47,29 @@ describe('enrichIp', () => {
 			city: 'Toronto',
 		});
 		expect(fetch).toHaveBeenCalledTimes(2);
+		expect(fetch.mock.calls[0][0]).toBe('https://ipwho.is/8.8.8.8');
 		expect(fetch.mock.calls[1][0]).toContain('ipapi.co/8.8.8.8/json/');
+		expect(fetch.mock.calls[1][0]).toMatch(/^https:/);
+	});
+
+	test('uses the fallback when the primary provider reports no result', async () => {
+		const fetch = jest.spyOn(globalThis, 'fetch')
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ success: false, message: 'invalid query' }),
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				json: async () => ({ country_name: 'Canada', city: 'Toronto' }),
+			});
+		jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+		await expect(enrichIp({ ip: '8.8.8.8' })).resolves.toEqual({
+			ipAddress: '8.8.8.8',
+			country: 'Canada',
+			city: 'Toronto',
+		});
+		expect(fetch).toHaveBeenCalledTimes(2);
 	});
 
 	test('returns null geo data and logs when both providers fail', async () => {

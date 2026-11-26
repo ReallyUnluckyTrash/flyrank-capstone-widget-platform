@@ -235,8 +235,12 @@ empty volume; apply future schema changes using a migration process.
 	log in. Disable required email confirmation for local testing if necessary.
 - Demo tenant IDs come from Supabase at seed time. The widget IDs are fixed, but
 	tenant IDs may change when seeding against another Supabase project.
-- Geo lookup depends on external internet services. The app stores the
-	submission even when both providers fail, but the location will be empty.
+- Geo lookup sends public visitor IP addresses to ipwho.is, then ipapi.co if the
+	primary lookup fails. The ipwho.is free endpoint requires no API key, allows
+	commercial use, and is limited to 1,000 requests per day without an uptime
+	SLA; review the provider's current terms before relying on it for real users.
+	The app stores submissions even when both providers fail, but the location
+	will be empty.
 - The rate limiter uses the API process's memory, so it is not suitable for
 	multiple API servers without a shared rate-limit store.
 - The webhook is optional and only sends a basic JSON request. It has no retry
