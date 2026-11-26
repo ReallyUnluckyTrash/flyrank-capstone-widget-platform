@@ -107,6 +107,9 @@ docker compose up -d --build
 
 The API is available at `http://localhost:3000` and the React dashboard at
 `http://localhost:3001`.
+The API exposes `/health/live` for process liveness and `/health/ready` for
+database-backed readiness; Compose uses the readiness endpoint to monitor the
+API container.
 The seed command in the next step also runs this startup command, so you can
 skip this step when you only want the demo environment.
 

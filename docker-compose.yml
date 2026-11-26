@@ -37,6 +37,16 @@ services:
       - app
       - database
     restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
   frontend:
     build:
       context: ./frontend
@@ -46,7 +56,7 @@ services:
       - "127.0.0.1:${FRONTEND_PORT:-3001}:80"
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     networks:
       - app
     restart: unless-stopped

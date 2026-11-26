@@ -5,12 +5,15 @@ import dashboardRouter from './routes/dashboardRoutes.js';
 import submissionsRouter from './routes/submissionsRoutes.js';
 import widgetsRouter from './routes/widgetsRoutes.js';
 import widgetLoaderRouter from './routes/widgetLoaderRoutes.js';
+import { healthController } from './controllers/healthController.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.set('trust proxy', 1);
 app.use(express.json());
+app.get('/health/live', healthController.live);
+app.get('/health/ready', healthController.ready);
 app.use('/auth', authRouter);
 app.use('/dashboard', dashboardRouter);
 app.use('/submissions', submissionsRouter);
