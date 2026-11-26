@@ -1,8 +1,14 @@
 const TOKEN_KEY = 'flyrank.access_token';
 const REFRESH_KEY = 'flyrank.refresh_token';
-const WIDGET_BASE_URL = (import.meta.env.VITE_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+const configuredWidgetBaseUrl = import.meta.env.VITE_PUBLIC_APP_URL?.trim();
+const WIDGET_BASE_URL = (
+  configuredWidgetBaseUrl || (import.meta.env.DEV ? 'http://localhost:3000' : '')
+).replace(/\/+$/, '');
 
 export function getWidgetEmbedSnippet(widgetId) {
+  if (!WIDGET_BASE_URL) {
+    throw new Error('VITE_PUBLIC_APP_URL is required to generate widget embed code.');
+  }
   return `<script src="${WIDGET_BASE_URL}/widget.js?id=${widgetId}&v=1" defer></script>`;
 }
 

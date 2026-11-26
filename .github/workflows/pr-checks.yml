@@ -50,6 +50,8 @@ jobs:
   frontend-build:
     name: Frontend Production Build
     runs-on: ubuntu-latest
+    env:
+      VITE_PUBLIC_APP_URL: https://widgets.example.test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

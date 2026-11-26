@@ -26,7 +26,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-widget_db}
       SUPABASE_URL: ${SUPABASE_URL:?Set SUPABASE_URL in .env}
       SUPABASE_KEY: ${SUPABASE_KEY:?Set SUPABASE_KEY in .env}
-      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:?Set PUBLIC_APP_URL in .env}
       PORT: 3000
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
@@ -51,7 +51,7 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:-http://localhost:3000}
+        VITE_PUBLIC_APP_URL: ${VITE_PUBLIC_APP_URL:?Set VITE_PUBLIC_APP_URL in .env}
     ports:
       - "127.0.0.1:${FRONTEND_PORT:-3001}:80"
     depends_on:

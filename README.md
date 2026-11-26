@@ -95,6 +95,9 @@ SUPABASE_KEY=<your Supabase publishable/anon key>
 
 The example database password is for local development only. Use a unique
 strong password for any public deployment.
+`PUBLIC_APP_URL` and `VITE_PUBLIC_APP_URL` must be set to the public API origin
+used by generated widget embed snippets. For local development, the example
+values point to `http://localhost:3000`.
 
 The Supabase project must allow email/password sign-up and login. The seed
 script creates the demo users through the API's normal auth routes.
